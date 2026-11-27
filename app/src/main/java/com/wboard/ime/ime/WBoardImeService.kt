@@ -30,20 +30,21 @@ import com.wboard.ime.ui.KeyboardTheme
 import com.wboard.ime.ui.MainActivity
 import com.wboard.ime.ui.SettingsActivity
 import com.wboard.ime.voice.IndonesianVoiceController
-import com.wboard.ime.voice.VoiceInputActivity
 import com.wboard.ime.voice.VoiceResultBridge
+import com.wboard.ime.voice.WhisperModelManager
+import com.wboard.ime.voice.WhisperVoiceController
 import java.util.concurrent.Executors
 
 class WBoardImeService : InputMethodService(),
     WBoardKeyboardView.Listener,
     SuggestionStripView.Listener,
     ClipboardPanelView.Listener,
-    IndonesianVoiceController.Listener {
+    WhisperVoiceController.Listener {
 
     private lateinit var prefs: WBoardPrefs
     private lateinit var userLexiconStore: UserLexiconStore
     private lateinit var predictionEngine: IndonesianPredictionEngine
-    private lateinit var voiceController: IndonesianVoiceController
+    private lateinit var voiceController: WhisperVoiceController
     private var clipboardManager: ClipboardManager? = null
     private val clipboardStore = ClipboardHistoryStore()
 
@@ -83,7 +84,7 @@ class WBoardImeService : InputMethodService(),
         prefs.registerListener(prefListener)
         userLexiconStore = UserLexiconStore(this)
         predictionEngine = IndonesianPredictionEngine()
-        voiceController = IndonesianVoiceController(this, this)
+        voiceController = WhisperVoiceController(this, this)
         clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
         clipboardManager?.addPrimaryClipChangedListener(clipChangedListener)
         captureCurrentSystemClip()
@@ -339,7 +340,7 @@ class WBoardImeService : InputMethodService(),
         if (!fieldPolicy.allowVoiceInput || !prefs.voiceInputEnabled) return
         setClipboardOpen(false)
         if (voiceController.isActive()) {
-            voiceController.stopListening()
+            voiceController.stopAndTranscribe()
             return
         }
         if (!IndonesianVoiceController.hasAudioPermission(this)) {
@@ -350,11 +351,20 @@ class WBoardImeService : InputMethodService(),
             startActivity(intent)
             return
         }
+        if (WhisperModelManager.activeModelFile(this, prefs.whisperModelId) == null) {
+            onVoiceError("no_model")
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra(MainActivity.EXTRA_SETUP_VOICE_MODEL, true)
+            }
+            startActivity(intent)
+            return
+        }
         commitComposingRaw()
         val before = currentInputConnection?.getTextBeforeCursor(16, 0)?.toString().orEmpty()
         val capFirst = before.isBlank() || isSentenceBoundaryChar(before.trimEnd().lastOrNull())
         voiceController.startListening(
-            strictOffline = prefs.voiceStrictOffline,
+            preferredModelId = prefs.whisperModelId,
             applyPunctuation = prefs.voicePunctuationEnabled,
             capitalizeFirst = capFirst
         )
@@ -455,32 +465,30 @@ class WBoardImeService : InputMethodService(),
         startActivity(intent)
     }
 
-    // --- IndonesianVoiceController.Listener ---
+    // --- WhisperVoiceController.Listener ---
 
-    override fun onListeningStarted(onDevice: Boolean) {
-        voiceIsOnDevice = onDevice
+    override fun onVoiceListeningStarted() {
         suggestionStrip?.setVoiceState(
             active = true,
-            onDevice = onDevice,
+            onDevice = true,
             partialText = "",
             statusText = ""
         )
     }
 
-    override fun onRmsChanged(level: Float) {
+    override fun onVoiceRmsChanged(level: Float) {
         suggestionStrip?.updateVoiceRms(level)
     }
 
-    override fun onPartialResult(text: String) {
-        currentInputConnection?.setComposingText(text, 1)
+    override fun onVoiceTranscribing() {
         suggestionStrip?.setVoiceState(
             active = true,
-            onDevice = voiceIsOnDevice,
-            partialText = text
+            onDevice = true,
+            partialText = getString(R.string.ime_voice_transcribing)
         )
     }
 
-    override fun onFinalResult(text: String) {
+    override fun onVoiceFinalResult(text: String) {
         val ic = currentInputConnection
         if (ic != null) {
             val needsSpace = !text.endsWith("\n") && !text.endsWith(" ")
@@ -495,40 +503,18 @@ class WBoardImeService : InputMethodService(),
     }
 
     override fun onVoiceError(reason: String) {
-        currentInputConnection?.setComposingText("", 1)
-        currentInputConnection?.finishComposingText()
-
-        if (reason == "fallback_activity" && IndonesianVoiceController.isActivityAvailable(this)) {
-            suggestionStrip?.setVoiceState(active = false)
-            val before = currentInputConnection?.getTextBeforeCursor(16, 0)?.toString().orEmpty()
-            val capFirst = before.isBlank() || isSentenceBoundaryChar(before.trimEnd().lastOrNull())
-            val intent = Intent(this, VoiceInputActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                putExtra(VoiceInputActivity.EXTRA_PUNCTUATION, prefs.voicePunctuationEnabled)
-                putExtra(VoiceInputActivity.EXTRA_CAPITALIZE, capFirst)
-                putExtra(VoiceInputActivity.EXTRA_PREFER_OFFLINE, prefs.voiceStrictOffline)
-            }
-            startActivity(intent)
-            return
-        }
-
         val message = when (reason) {
             "no_permission" -> getString(R.string.ime_voice_no_permission)
-            "offline_unavailable" -> getString(R.string.ime_voice_unavailable)
-            "no_match", "timeout" -> ""
+            "no_model" -> getString(R.string.ime_voice_no_model)
             else -> getString(R.string.ime_voice_error, reason)
         }
         suggestionStrip?.setVoiceState(active = false, statusText = message)
-        if (message.isNotEmpty()) {
-            mainHandler.postDelayed({
-                if (!voiceController.isActive()) {
-                    suggestionStrip?.setVoiceState(active = false, statusText = "")
-                    refreshSuggestions()
-                }
-            }, 2600L)
-        } else {
-            refreshSuggestions()
-        }
+        mainHandler.postDelayed({
+            if (!voiceController.isActive()) {
+                suggestionStrip?.setVoiceState(active = false, statusText = "")
+                refreshSuggestions()
+            }
+        }, 3000L)
     }
 
     override fun onVoiceStopped() {

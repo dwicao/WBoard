@@ -21,16 +21,22 @@ import com.wboard.ime.R
 import com.wboard.ime.prefs.WBoardPrefs
 import com.wboard.ime.update.Updater
 import com.wboard.ime.voice.IndonesianVoiceController
-import com.wboard.ime.voice.VoiceInputActivity
 import com.wboard.ime.voice.VoiceResultBridge
+import com.wboard.ime.voice.WhisperModelManager
+import com.wboard.ime.voice.WhisperModelManager.ModelVariant
+import com.wboard.ime.voice.WhisperVoiceController
 import java.io.File
 
-class MainActivity : Activity(), IndonesianVoiceController.Listener {
+class MainActivity : Activity(), WhisperVoiceController.Listener {
 
     private lateinit var statusEnableIme: TextView
     private lateinit var statusSelectIme: TextView
     private lateinit var statusMicPerm: TextView
     private lateinit var txtVoiceStatus: TextView
+    private lateinit var btnDownloadTiny: Button
+    private lateinit var btnDownloadBase: Button
+    private lateinit var btnDeleteModel: Button
+    private lateinit var btnTestVoice: Button
     private lateinit var txtUpdatesCurrent: TextView
     private lateinit var txtUpdatesStatus: TextView
     private lateinit var btnCheckUpdates: Button
@@ -38,17 +44,18 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
     private lateinit var editPlayground: EditText
 
     private lateinit var prefs: WBoardPrefs
-    private lateinit var voiceController: IndonesianVoiceController
+    private lateinit var voiceController: WhisperVoiceController
 
     private var availableUpdate: Updater.Info? = null
     private var downloadedApk: File? = null
+    private var downloadingModel: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         prefs = WBoardPrefs(this)
-        voiceController = IndonesianVoiceController(this, this)
+        voiceController = WhisperVoiceController(this, this)
 
         val root = findViewById<View>(R.id.main_root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
@@ -62,6 +69,10 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
         statusSelectIme = findViewById(R.id.status_select_ime)
         statusMicPerm = findViewById(R.id.status_mic_perm)
         txtVoiceStatus = findViewById(R.id.txt_voice_status)
+        btnDownloadTiny = findViewById(R.id.btn_download_tiny)
+        btnDownloadBase = findViewById(R.id.btn_download_base)
+        btnDeleteModel = findViewById(R.id.btn_delete_model)
+        btnTestVoice = findViewById(R.id.btn_test_voice)
         txtUpdatesCurrent = findViewById(R.id.txt_updates_current)
         txtUpdatesStatus = findViewById(R.id.txt_updates_status)
         btnCheckUpdates = findViewById(R.id.btn_check_updates)
@@ -87,33 +98,30 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
             requestMicPermission()
         }
 
-        findViewById<Button>(R.id.btn_test_voice).setOnClickListener {
+        btnDownloadTiny.setOnClickListener { startModelDownload(ModelVariant.TINY_Q5_1) }
+        btnDownloadBase.setOnClickListener { startModelDownload(ModelVariant.BASE_Q5_1) }
+        btnDeleteModel.setOnClickListener {
+            WhisperModelManager.deleteAllModels(this)
+            refreshStatus()
+        }
+
+        btnTestVoice.setOnClickListener {
             if (!IndonesianVoiceController.hasAudioPermission(this)) {
                 requestMicPermission()
                 return@setOnClickListener
             }
+            if (WhisperModelManager.activeModelFile(this, prefs.whisperModelId) == null) {
+                txtVoiceStatus.text = getString(R.string.voice_model_missing)
+                return@setOnClickListener
+            }
             if (voiceController.isActive()) {
-                voiceController.stopListening()
+                voiceController.stopAndTranscribe()
             } else {
                 voiceController.startListening(
-                    strictOffline = prefs.voiceStrictOffline,
+                    preferredModelId = prefs.whisperModelId,
                     applyPunctuation = prefs.voicePunctuationEnabled,
                     capitalizeFirst = true
                 )
-            }
-        }
-
-        findViewById<Button>(R.id.btn_voice_settings).setOnClickListener {
-            val intents = listOf(
-                Intent("com.android.settings.VOICE_INPUT_SETTINGS"),
-                Intent(Settings.ACTION_LOCALE_SETTINGS),
-                Intent(Settings.ACTION_SETTINGS)
-            )
-            for (intent in intents) {
-                if (intent.resolveActivity(packageManager) != null) {
-                    startActivity(intent)
-                    break
-                }
             }
         }
 
@@ -158,6 +166,37 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_MIC) refreshStatus()
+    }
+
+    private fun startModelDownload(variant: ModelVariant) {
+        if (downloadingModel) return
+        downloadingModel = true
+        btnDownloadTiny.isEnabled = false
+        btnDownloadBase.isEnabled = false
+        btnDeleteModel.isEnabled = false
+        txtVoiceStatus.text = getString(R.string.voice_model_downloading, variant.displayName, 0)
+
+        WhisperModelManager.downloadModelAsync(
+            context = this,
+            variant = variant,
+            cancelled = { isDestroyed },
+            onProgress = { done, total ->
+                val pct = if (total > 0) ((done * 100L) / total).toInt().coerceIn(0, 100) else 0
+                txtVoiceStatus.text = getString(R.string.voice_model_downloading, variant.displayName, pct)
+            },
+            onComplete = { result ->
+                downloadingModel = false
+                btnDownloadTiny.isEnabled = true
+                btnDownloadBase.isEnabled = true
+                btnDeleteModel.isEnabled = true
+                result.onSuccess {
+                    prefs.whisperModelId = variant.id
+                    refreshStatus()
+                }.onFailure { err ->
+                    txtVoiceStatus.text = getString(R.string.voice_model_error, err.message ?: "error")
+                }
+            }
+        )
     }
 
     private fun checkForUpdates() {
@@ -254,32 +293,24 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
         )
     }
 
-    // --- IndonesianVoiceController.Listener ---
+    // --- WhisperVoiceController.Listener ---
 
-    override fun onListeningStarted(onDevice: Boolean) {
+    override fun onVoiceListeningStarted() {
         txtVoiceStatus.text = getString(R.string.voice_test_listening)
     }
 
-    override fun onRmsChanged(level: Float) = Unit
+    override fun onVoiceRmsChanged(level: Float) = Unit
 
-    override fun onPartialResult(text: String) {
-        txtVoiceStatus.text = getString(R.string.voice_test_result, text)
+    override fun onVoiceTranscribing() {
+        txtVoiceStatus.text = getString(R.string.voice_test_processing)
     }
 
-    override fun onFinalResult(text: String) {
+    override fun onVoiceFinalResult(text: String) {
         txtVoiceStatus.text = getString(R.string.voice_test_result, text)
         editPlayground.append(if (editPlayground.text.isEmpty()) text else " $text")
     }
 
     override fun onVoiceError(reason: String) {
-        if (reason == "fallback_activity" && IndonesianVoiceController.isActivityAvailable(this)) {
-            startActivity(Intent(this, VoiceInputActivity::class.java).apply {
-                putExtra(VoiceInputActivity.EXTRA_PUNCTUATION, prefs.voicePunctuationEnabled)
-                putExtra(VoiceInputActivity.EXTRA_CAPITALIZE, true)
-                putExtra(VoiceInputActivity.EXTRA_PREFER_OFFLINE, prefs.voiceStrictOffline)
-            })
-            return
-        }
         txtVoiceStatus.text = getString(R.string.voice_test_error, reason)
     }
 
@@ -321,23 +352,22 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
             ContextCompat.getColor(this, if (micGranted) R.color.wb_ok else R.color.wb_text_secondary)
         )
 
-        if (!voiceController.isActive()) {
-            val voiceAvailability = IndonesianVoiceController.checkAvailability(this)
-            txtVoiceStatus.text = when (voiceAvailability) {
-                IndonesianVoiceController.Availability.ON_DEVICE_READY ->
-                    getString(R.string.voice_on_device_ready)
-                IndonesianVoiceController.Availability.SYSTEM_ONLY ->
-                    getString(R.string.voice_system_only)
-                IndonesianVoiceController.Availability.ACTIVITY_ONLY ->
-                    getString(R.string.voice_activity_only)
-                IndonesianVoiceController.Availability.UNAVAILABLE ->
-                    getString(R.string.voice_unavailable)
+        val installed = WhisperModelManager.activeModelFile(this, prefs.whisperModelId)
+        btnDeleteModel.visibility = if (installed != null) View.VISIBLE else View.GONE
+        btnTestVoice.isEnabled = installed != null
+
+        if (!downloadingModel && !voiceController.isActive()) {
+            txtVoiceStatus.text = if (installed != null) {
+                getString(R.string.voice_model_ready, installed.first.displayName)
+            } else {
+                getString(R.string.voice_model_missing)
             }
         }
     }
 
     companion object {
         const val EXTRA_REQUEST_MIC = "extra_request_mic"
+        const val EXTRA_SETUP_VOICE_MODEL = "extra_setup_voice_model"
         private const val REQ_MIC = 101
     }
 }

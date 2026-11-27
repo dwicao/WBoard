@@ -21,16 +21,21 @@
     <string name="status_granted">Diizinkan</string>
     <string name="status_not_granted">Belum diizinkan</string>
 
-    <string name="voice_section_title">Mesin Suara Indonesia (id-ID)</string>
-    <string name="voice_on_device_ready">Pengenalan suara Indonesia offline di perangkat tersedia.</string>
-    <string name="voice_system_only">Pengenal suara sistem siap dipakai (utamakan offline dengan fallback otomatis).</string>
-    <string name="voice_activity_only">Dialog suara sistem tersedia untuk Bahasa Indonesia (id-ID).</string>
-    <string name="voice_unavailable">Pengenal suara tidak ditemukan di perangkat ini.</string>
-    <string name="btn_voice_settings">Pengaturan Suara</string>
+    <string name="voice_section_title">Suara Indonesia Offline (Whisper.cpp)</string>
+    <string name="voice_model_ready">Model offline siap: %s</string>
+    <string name="voice_model_missing">Unduh model Whisper offline sekali (~31 MB) untuk voice-to-text Indonesia 100% di dalam aplikasi.</string>
+    <string name="voice_model_downloading">Mengunduh %1$s… %2$d%%</string>
+    <string name="voice_model_error">Gagal mengunduh model: %s</string>
+    <string name="btn_download_tiny">Unduh Tiny (31 MB)</string>
+    <string name="btn_download_base">Unduh Base (57 MB)</string>
+    <string name="btn_delete_model">Hapus Model</string>
     <string name="btn_test_voice">Tes Suara (ID)</string>
-    <string name="voice_test_listening">Silakan bicara Bahasa Indonesia…</string>
+    <string name="voice_test_listening">Silakan bicara Bahasa Indonesia… (otomatis berhenti saat jeda)</string>
+    <string name="voice_test_processing">Mentranskripsi offline…</string>
     <string name="voice_test_result">Terdeteksi: %s</string>
     <string name="voice_test_error">Error suara: %s</string>
+    <string name="ime_voice_transcribing">Memproses suara (ID)…</string>
+    <string name="ime_voice_no_model">Unduh model suara offline di aplikasi WBoard</string>
 
     <string name="privacy_section_title">Audit Privasi &amp; Keamanan</string>
     <string name="privacy_no_internet">• Tanpa telemetri atau koneksi latar belakang (internet hanya saat Anda cek pembaruan)</string>

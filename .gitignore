@@ -8,5 +8,6 @@
 /captures
 .externalNativeBuild
 .cxx
+app/.cxx_deps
 *.jks
 *.keystore

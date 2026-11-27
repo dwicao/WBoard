@@ -175,7 +175,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Indonesian Voice Engine Card -->
+        <!-- Offline Whisper Voice Engine Card -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -207,6 +207,36 @@
                 android:orientation="horizontal">
 
                 <Button
+                    android:id="@+id/btn_download_tiny"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:background="@drawable/bg_button_primary"
+                    android:paddingHorizontal="12dp"
+                    android:text="@string/btn_download_tiny"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btn_download_base"
+                    android:layout_width="wrap_content"
+                    android:layout_height="34dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_button_secondary"
+                    android:paddingHorizontal="12dp"
+                    android:text="@string/btn_download_base"
+                    android:textAllCaps="false"
+                    android:textColor="@color/wb_text_primary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
                     android:id="@+id/btn_test_voice"
                     android:layout_width="wrap_content"
                     android:layout_height="34dp"
@@ -218,15 +248,15 @@
                     android:textSize="12sp" />
 
                 <Button
-                    android:id="@+id/btn_voice_settings"
+                    android:id="@+id/btn_delete_model"
                     android:layout_width="wrap_content"
                     android:layout_height="34dp"
                     android:layout_marginStart="8dp"
                     android:background="@drawable/bg_button_secondary"
                     android:paddingHorizontal="12dp"
-                    android:text="@string/btn_voice_settings"
+                    android:text="@string/btn_delete_model"
                     android:textAllCaps="false"
-                    android:textColor="@color/wb_text_primary"
+                    android:textColor="@color/wb_danger"
                     android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>

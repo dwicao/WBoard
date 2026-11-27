@@ -108,6 +108,10 @@ class WBoardPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_CLIPBOARD_HISTORY, true)
         set(value) = prefs.edit().putBoolean(KEY_CLIPBOARD_HISTORY, value).apply()
 
+    var whisperModelId: String
+        get() = prefs.getString(KEY_WHISPER_MODEL, "tiny_q5_1") ?: "tiny_q5_1"
+        set(value) = prefs.edit().putString(KEY_WHISPER_MODEL, value).apply()
+
     fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
     }
@@ -134,5 +138,6 @@ class WBoardPrefs(context: Context) {
         private const val KEY_VOICE_PUNCTUATION = "voice_punctuation"
         private const val KEY_CLIPBOARD_ENABLED = "clipboard_enabled"
         private const val KEY_CLIPBOARD_HISTORY = "clipboard_history"
+        private const val KEY_WHISPER_MODEL = "whisper_model_id"
     }
 }
