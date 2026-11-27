@@ -100,6 +100,14 @@ class WBoardPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_VOICE_PUNCTUATION, true)
         set(value) = prefs.edit().putBoolean(KEY_VOICE_PUNCTUATION, value).apply()
 
+    var clipboardEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLIPBOARD_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_CLIPBOARD_ENABLED, value).apply()
+
+    var clipboardHistoryEnabled: Boolean
+        get() = prefs.getBoolean(KEY_CLIPBOARD_HISTORY, true)
+        set(value) = prefs.edit().putBoolean(KEY_CLIPBOARD_HISTORY, value).apply()
+
     fun registerListener(listener: SharedPreferences.OnSharedPreferenceChangeListener) {
         prefs.registerOnSharedPreferenceChangeListener(listener)
     }
@@ -124,5 +132,7 @@ class WBoardPrefs(context: Context) {
         private const val KEY_VOICE_ENABLED = "voice_enabled"
         private const val KEY_VOICE_STRICT_OFFLINE = "voice_strict_offline"
         private const val KEY_VOICE_PUNCTUATION = "voice_punctuation"
+        private const val KEY_CLIPBOARD_ENABLED = "clipboard_enabled"
+        private const val KEY_CLIPBOARD_HISTORY = "clipboard_history"
     }
 }

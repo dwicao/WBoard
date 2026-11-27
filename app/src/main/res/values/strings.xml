@@ -38,10 +38,32 @@
 
     <!-- Privacy Audit -->
     <string name="privacy_section_title">Privacy &amp; Security Audit</string>
-    <string name="privacy_no_internet">• Zero INTERNET permission declared in manifest</string>
+    <string name="privacy_no_internet">• Zero telemetry or background network calls (internet only on manual Update check)</string>
     <string name="privacy_no_backup">• Cloud backup &amp; device transfer disabled</string>
-    <string name="privacy_password_shield">• Password &amp; incognito fields auto-disable learning, predictions &amp; mic</string>
-    <string name="privacy_local_only">• Predictions &amp; optional learned words stay 100% on-device</string>
+    <string name="privacy_password_shield">• Password &amp; incognito fields auto-disable learning, predictions, clipboard &amp; mic</string>
+    <string name="privacy_local_only">• Predictions &amp; RAM-only clipboard stay 100% on-device</string>
+
+    <!-- Updates -->
+    <string name="updates_section_title">App Updates</string>
+    <string name="updates_current_version">Installed: v%1$s (%2$d)</string>
+    <string name="updates_idle">Check GitHub Releases via version.json (manual only)</string>
+    <string name="updates_checking">Checking version.json…</string>
+    <string name="updates_up_to_date">You are on the latest version (v%s).</string>
+    <string name="updates_available">New version v%1$s (%2$s) available</string>
+    <string name="updates_downloading">Downloading update… %d%%</string>
+    <string name="updates_ready">Verified SHA-256. Ready to install.</string>
+    <string name="updates_error">Update check failed: %s</string>
+    <string name="btn_check_updates">Check for Updates</string>
+    <string name="btn_install_update">Download &amp; Install</string>
+
+    <!-- Clipboard -->
+    <string name="clipboard_title">Clipboard (Private · RAM-only)</string>
+    <string name="clipboard_clear">Clear</string>
+    <string name="clipboard_empty">Clipboard is empty</string>
+    <string name="cat_clipboard">Private Clipboard</string>
+    <string name="pref_clipboard_enabled">Show Clipboard Button</string>
+    <string name="pref_clipboard_history">Keep Session History (RAM only)</string>
+    <string name="pref_clipboard_history_desc">Never saved to disk; skips sensitive password-manager clips</string>
 
     <!-- Test Playground -->
     <string name="playground_title">Test Keyboard &amp; Voice</string>

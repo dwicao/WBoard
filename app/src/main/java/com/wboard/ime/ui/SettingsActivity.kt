@@ -99,6 +99,9 @@ class SettingsActivity : Activity() {
         bindSwitch(R.id.switch_voice_enabled, prefs.voiceInputEnabled) { prefs.voiceInputEnabled = it }
         bindSwitch(R.id.switch_voice_offline, prefs.voiceStrictOffline) { prefs.voiceStrictOffline = it }
         bindSwitch(R.id.switch_voice_punct, prefs.voicePunctuationEnabled) { prefs.voicePunctuationEnabled = it }
+
+        bindSwitch(R.id.switch_clipboard_enabled, prefs.clipboardEnabled) { prefs.clipboardEnabled = it }
+        bindSwitch(R.id.switch_clipboard_history, prefs.clipboardHistoryEnabled) { prefs.clipboardHistoryEnabled = it }
     }
 
     private fun bindSwitch(id: Int, initial: Boolean, onChanged: (Boolean) -> Unit) {

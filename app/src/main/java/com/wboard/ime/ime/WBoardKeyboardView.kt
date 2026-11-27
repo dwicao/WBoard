@@ -163,6 +163,8 @@ class WBoardKeyboardView @JvmOverloads constructor(
         layoutKeys(right - left, bottom - top)
     }
 
+    fun currentTargetHeightPx(): Int = computeKeyboardHeightPx()
+
     private fun computeKeyboardHeightPx(): Int {
         // Keep keyboard height 100% constant across ALPHA, SYMBOLS, MORE_SYMBOLS, and NUMERIC
         // so switching layouts never causes height jumps or inconsistent key sizes.

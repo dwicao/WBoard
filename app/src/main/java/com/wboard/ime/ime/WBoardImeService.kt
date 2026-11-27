@@ -1,8 +1,12 @@
 package com.wboard.ime.ime
 
+import android.content.ClipDescription
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.inputmethodservice.InputMethodService
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
@@ -10,10 +14,13 @@ import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.wboard.ime.R
+import com.wboard.ime.clipboard.ClipboardHistoryStore
+import com.wboard.ime.clipboard.ClipboardPanelView
 import com.wboard.ime.prediction.IndonesianPredictionEngine
 import com.wboard.ime.prediction.IndonesianPredictionEngine.Suggestion
 import com.wboard.ime.prediction.UserLexiconStore
@@ -30,16 +37,21 @@ import java.util.concurrent.Executors
 class WBoardImeService : InputMethodService(),
     WBoardKeyboardView.Listener,
     SuggestionStripView.Listener,
+    ClipboardPanelView.Listener,
     IndonesianVoiceController.Listener {
 
     private lateinit var prefs: WBoardPrefs
     private lateinit var userLexiconStore: UserLexiconStore
     private lateinit var predictionEngine: IndonesianPredictionEngine
     private lateinit var voiceController: IndonesianVoiceController
+    private var clipboardManager: ClipboardManager? = null
+    private val clipboardStore = ClipboardHistoryStore()
 
     private var rootContainer: LinearLayout? = null
     private var suggestionStrip: SuggestionStripView? = null
     private var keyboardView: WBoardKeyboardView? = null
+    private var clipboardPanel: ClipboardPanelView? = null
+    private var isClipboardOpen: Boolean = false
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val bgExecutor = Executors.newSingleThreadExecutor()
@@ -61,6 +73,10 @@ class WBoardImeService : InputMethodService(),
         mainHandler.post { applyPreferencesAndTheme() }
     }
 
+    private val clipChangedListener = ClipboardManager.OnPrimaryClipChangedListener {
+        captureCurrentSystemClip()
+    }
+
     override fun onCreate() {
         super.onCreate()
         prefs = WBoardPrefs(this)
@@ -68,6 +84,9 @@ class WBoardImeService : InputMethodService(),
         userLexiconStore = UserLexiconStore(this)
         predictionEngine = IndonesianPredictionEngine()
         voiceController = IndonesianVoiceController(this, this)
+        clipboardManager = getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        clipboardManager?.addPrimaryClipChangedListener(clipChangedListener)
+        captureCurrentSystemClip()
 
         bgExecutor.execute {
             runCatching {
@@ -93,6 +112,26 @@ class WBoardImeService : InputMethodService(),
         val kb = WBoardKeyboardView(this).apply {
             listener = this@WBoardImeService
         }
+        val clipPanel = ClipboardPanelView(this).apply {
+            listener = this@WBoardImeService
+            visibility = View.GONE
+        }
+        val stack = FrameLayout(this).apply {
+            addView(
+                kb,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+            addView(
+                clipPanel,
+                FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             addView(
@@ -103,7 +142,7 @@ class WBoardImeService : InputMethodService(),
                 )
             )
             addView(
-                kb,
+                stack,
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -119,6 +158,7 @@ class WBoardImeService : InputMethodService(),
 
         suggestionStrip = strip
         keyboardView = kb
+        clipboardPanel = clipPanel
         rootContainer = container
         applyPreferencesAndTheme()
         return container
@@ -130,6 +170,7 @@ class WBoardImeService : InputMethodService(),
         composingWord.setLength(0)
         lastAutoCorrected = null
         lastAutoCommitCandidate = null
+        setClipboardOpen(false)
 
         currentMode = if (fieldPolicy.preferNumericLayout) {
             KeyboardMode.NUMERIC
@@ -185,6 +226,8 @@ class WBoardImeService : InputMethodService(),
 
     override fun onDestroy() {
         prefs.unregisterListener(prefListener)
+        clipboardManager?.removePrimaryClipChangedListener(clipChangedListener)
+        clipboardStore.clear()
         voiceController.destroy()
         bgExecutor.shutdownNow()
         super.onDestroy()
@@ -283,8 +326,18 @@ class WBoardImeService : InputMethodService(),
         refreshSuggestions()
     }
 
+    override fun onClipboardClicked() {
+        if (!prefs.clipboardEnabled || fieldPolicy.isPasswordOrSensitive) return
+        if (voiceController.isActive()) {
+            voiceController.cancel()
+        }
+        captureCurrentSystemClip()
+        setClipboardOpen(!isClipboardOpen)
+    }
+
     override fun onVoiceClicked() {
         if (!fieldPolicy.allowVoiceInput || !prefs.voiceInputEnabled) return
+        setClipboardOpen(false)
         if (voiceController.isActive()) {
             voiceController.stopListening()
             return
@@ -311,6 +364,88 @@ class WBoardImeService : InputMethodService(),
         voiceController.cancel()
         currentInputConnection?.setComposingText("", 1)
         currentInputConnection?.finishComposingText()
+    }
+
+    // --- ClipboardPanelView.Listener ---
+
+    override fun onClipSelected(text: String) {
+        val ic = currentInputConnection ?: return
+        commitComposingRaw()
+        ic.commitText(text, 1)
+        setClipboardOpen(false)
+        extractPreviousWordFromCursor()
+        updateAutoCapitalization()
+        refreshKeyboardView()
+        refreshSuggestions()
+    }
+
+    override fun onClipDelete(text: String) {
+        clipboardStore.remove(text)
+        clipboardPanel?.setClips(clipboardStore.items())
+    }
+
+    override fun onClipboardClearAll() {
+        clipboardStore.clear()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            runCatching { clipboardManager?.clearPrimaryClip() }
+        }
+        clipboardPanel?.setClips(emptyList())
+    }
+
+    override fun onClipboardClose() {
+        setClipboardOpen(false)
+    }
+
+    private fun setClipboardOpen(open: Boolean) {
+        isClipboardOpen = open && prefs.clipboardEnabled && !fieldPolicy.isPasswordOrSensitive
+        suggestionStrip?.setClipboardActive(isClipboardOpen)
+        if (isClipboardOpen) {
+            val h = keyboardView?.currentTargetHeightPx() ?: 0
+            clipboardPanel?.apply {
+                setTargetHeightPx(h)
+                applyTheme(currentTheme)
+                setClips(currentClipboardDisplayList())
+                visibility = View.VISIBLE
+            }
+            keyboardView?.visibility = View.GONE
+        } else {
+            clipboardPanel?.visibility = View.GONE
+            keyboardView?.visibility = View.VISIBLE
+        }
+    }
+
+    private fun captureCurrentSystemClip() {
+        val cm = clipboardManager ?: return
+        val clip = runCatching { cm.primaryClip }.getOrNull() ?: return
+        val desc = clip.description
+        val isSensitive = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            desc.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE, false) == true
+        } else {
+            false
+        }
+        if (isSensitive || clip.itemCount == 0) return
+        val text = clip.getItemAt(0)?.coerceToText(this)?.toString() ?: return
+        if (prefs.clipboardHistoryEnabled) {
+            clipboardStore.recordClip(text, isSensitive = false)
+        }
+        if (isClipboardOpen) {
+            clipboardPanel?.setClips(currentClipboardDisplayList())
+        }
+    }
+
+    private fun currentClipboardDisplayList(): List<String> {
+        if (prefs.clipboardHistoryEnabled) {
+            return clipboardStore.items()
+        }
+        val cm = clipboardManager ?: return emptyList()
+        val clip = runCatching { cm.primaryClip }.getOrNull() ?: return emptyList()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            clip.description.extras?.getBoolean(ClipDescription.EXTRA_IS_SENSITIVE, false) == true
+        ) {
+            return emptyList()
+        }
+        val text = clip.getItemAt(0)?.coerceToText(this)?.toString()?.takeIf { it.isNotBlank() }
+        return if (text != null) listOf(text) else emptyList()
     }
 
     override fun onSettingsClicked() {
@@ -639,8 +774,18 @@ class WBoardImeService : InputMethodService(),
             applyTheme(currentTheme)
             setPolicyState(
                 passwordMode = fieldPolicy.isPasswordOrSensitive,
-                allowMic = prefs.voiceInputEnabled && fieldPolicy.allowVoiceInput
+                allowMic = prefs.voiceInputEnabled && fieldPolicy.allowVoiceInput,
+                allowClipboard = prefs.clipboardEnabled && !fieldPolicy.isPasswordOrSensitive
             )
+            setClipboardActive(isClipboardOpen)
+        }
+        if (!prefs.clipboardEnabled || fieldPolicy.isPasswordOrSensitive) {
+            setClipboardOpen(false)
+        } else if (isClipboardOpen) {
+            clipboardPanel?.apply {
+                setTargetHeightPx(keyboardView?.currentTargetHeightPx() ?: 0)
+                applyTheme(currentTheme)
+            }
         }
         refreshKeyboardView()
     }

@@ -27,6 +27,7 @@ class SuggestionStripView @JvmOverloads constructor(
 
     interface Listener {
         fun onSuggestionClicked(suggestion: Suggestion)
+        fun onClipboardClicked()
         fun onVoiceClicked()
         fun onVoiceCancelClicked()
         fun onSettingsClicked()
@@ -38,6 +39,8 @@ class SuggestionStripView @JvmOverloads constructor(
     private var suggestions: List<Suggestion> = emptyList()
     private var isPasswordMode: Boolean = false
     private var showMicButton: Boolean = true
+    private var showClipboardButton: Boolean = true
+    private var clipboardActive: Boolean = false
 
     // Voice inline state
     private var voiceActive: Boolean = false
@@ -69,6 +72,7 @@ class SuggestionStripView @JvmOverloads constructor(
     private val wavePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val chipRects = ArrayList<RectF>(3)
+    private val clipRect = RectF()
     private val micRect = RectF()
     private val settingsRect = RectF()
     private val cancelRect = RectF()
@@ -84,9 +88,15 @@ class SuggestionStripView @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setPolicyState(passwordMode: Boolean, allowMic: Boolean) {
+    fun setPolicyState(passwordMode: Boolean, allowMic: Boolean, allowClipboard: Boolean) {
         isPasswordMode = passwordMode
         showMicButton = allowMic
+        showClipboardButton = allowClipboard
+        invalidate()
+    }
+
+    fun setClipboardActive(active: Boolean) {
+        clipboardActive = active
         invalidate()
     }
 
@@ -142,9 +152,18 @@ class SuggestionStripView @JvmOverloads constructor(
         // Mic button next to settings
         if (showMicButton && !isPasswordMode) {
             micRect.set(rightEdge - actionBtnW, pad, rightEdge, h - pad)
-            rightEdge -= actionBtnW + 6f * density
+            rightEdge -= actionBtnW + 4f * density
         } else {
             micRect.setEmpty()
+        }
+
+        // Clipboard button next to mic
+        if (showClipboardButton && !isPasswordMode) {
+            clipRect.set(rightEdge - actionBtnW, pad, rightEdge, h - pad)
+            rightEdge -= actionBtnW + 6f * density
+        } else {
+            clipRect.setEmpty()
+            if (!micRect.isEmpty) rightEdge -= 2f * density
         }
 
         drawIconButtons(canvas)
@@ -198,6 +217,16 @@ class SuggestionStripView @JvmOverloads constructor(
 
     private fun drawIconButtons(canvas: Canvas) {
         val r = 8f * density
+        if (!clipRect.isEmpty) {
+            buttonPaint.color = if (clipboardActive) theme.chipHighlightBg else theme.keyBg
+            canvas.drawRoundRect(clipRect, r, r, buttonPaint)
+            drawClipboardGlyph(
+                canvas,
+                clipRect.centerX(),
+                clipRect.centerY(),
+                if (clipboardActive) theme.accentBg else theme.textSecondary
+            )
+        }
         // Mic icon (drawn cleanly with geometric shapes)
         if (!micRect.isEmpty) {
             buttonPaint.color = theme.keyBg
@@ -208,6 +237,22 @@ class SuggestionStripView @JvmOverloads constructor(
         buttonPaint.color = theme.specialKeyBg
         canvas.drawRoundRect(settingsRect, r, r, buttonPaint)
         drawSlidersGlyph(canvas, settingsRect.centerX(), settingsRect.centerY(), theme.textSecondary)
+    }
+
+    private fun drawClipboardGlyph(canvas: Canvas, cx: Float, cy: Float, color: Int) {
+        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            this.color = color
+            style = Paint.Style.STROKE
+            strokeWidth = 1.6f * density
+        }
+        val bw = 5.4f * density
+        val bh = 6.8f * density
+        tempRect.set(cx - bw, cy - bh + 1.5f * density, cx + bw, cy + bh + 1f * density)
+        canvas.drawRoundRect(tempRect, 2f * density, 2f * density, p)
+
+        val clipW = 2.8f * density
+        tempRect.set(cx - clipW, cy - bh - 0.5f * density, cx + clipW, cy - bh + 2.5f * density)
+        canvas.drawRoundRect(tempRect, 1.2f * density, 1.2f * density, p)
     }
 
     private fun drawVoiceBar(canvas: Canvas, w: Float, h: Float) {
@@ -338,6 +383,10 @@ class SuggestionStripView @JvmOverloads constructor(
         }
         if (!micRect.isEmpty && micRect.contains(x, y)) {
             listener?.onVoiceClicked()
+            return true
+        }
+        if (!clipRect.isEmpty && clipRect.contains(x, y)) {
+            listener?.onClipboardClicked()
             return true
         }
         for (i in chipRects.indices) {

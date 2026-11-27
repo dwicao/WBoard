@@ -3,7 +3,8 @@ package com.wboard.ime.ui
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
@@ -15,11 +16,14 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.wboard.ime.BuildConfig
 import com.wboard.ime.R
 import com.wboard.ime.prefs.WBoardPrefs
+import com.wboard.ime.update.Updater
 import com.wboard.ime.voice.IndonesianVoiceController
 import com.wboard.ime.voice.VoiceInputActivity
 import com.wboard.ime.voice.VoiceResultBridge
+import java.io.File
 
 class MainActivity : Activity(), IndonesianVoiceController.Listener {
 
@@ -27,11 +31,17 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
     private lateinit var statusSelectIme: TextView
     private lateinit var statusMicPerm: TextView
     private lateinit var txtVoiceStatus: TextView
-    private lateinit var txtPrivacyInternet: TextView
+    private lateinit var txtUpdatesCurrent: TextView
+    private lateinit var txtUpdatesStatus: TextView
+    private lateinit var btnCheckUpdates: Button
+    private lateinit var btnInstallUpdate: Button
     private lateinit var editPlayground: EditText
 
     private lateinit var prefs: WBoardPrefs
     private lateinit var voiceController: IndonesianVoiceController
+
+    private var availableUpdate: Updater.Info? = null
+    private var downloadedApk: File? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,8 +62,17 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
         statusSelectIme = findViewById(R.id.status_select_ime)
         statusMicPerm = findViewById(R.id.status_mic_perm)
         txtVoiceStatus = findViewById(R.id.txt_voice_status)
-        txtPrivacyInternet = findViewById(R.id.txt_privacy_internet)
+        txtUpdatesCurrent = findViewById(R.id.txt_updates_current)
+        txtUpdatesStatus = findViewById(R.id.txt_updates_status)
+        btnCheckUpdates = findViewById(R.id.btn_check_updates)
+        btnInstallUpdate = findViewById(R.id.btn_install_update)
         editPlayground = findViewById(R.id.edit_playground)
+
+        txtUpdatesCurrent.text = getString(
+            R.string.updates_current_version,
+            BuildConfig.VERSION_NAME,
+            BuildConfig.VERSION_CODE
+        )
 
         findViewById<Button>(R.id.btn_enable_ime).setOnClickListener {
             startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
@@ -102,6 +121,9 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
+        btnCheckUpdates.setOnClickListener { checkForUpdates() }
+        btnInstallUpdate.setOnClickListener { downloadOrInstallUpdate() }
+
         handleMicIntent(intent)
     }
 
@@ -136,6 +158,84 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == REQ_MIC) refreshStatus()
+    }
+
+    private fun checkForUpdates() {
+        btnCheckUpdates.isEnabled = false
+        btnInstallUpdate.visibility = View.GONE
+        downloadedApk = null
+        txtUpdatesStatus.text = getString(R.string.updates_checking)
+
+        Updater.checkAsync { result ->
+            btnCheckUpdates.isEnabled = true
+            result.onSuccess { info ->
+                if (info.isNewerThan(BuildConfig.VERSION_CODE.toLong())) {
+                    availableUpdate = info
+                    val notesText = if (info.notes.isNotEmpty()) {
+                        "\n" + info.notes.joinToString("\n") { "• $it" }
+                    } else {
+                        ""
+                    }
+                    txtUpdatesStatus.text = getString(
+                        R.string.updates_available,
+                        info.version,
+                        info.releasedAt.ifBlank { "release" }
+                    ) + notesText
+                    btnInstallUpdate.visibility = View.VISIBLE
+                } else {
+                    availableUpdate = null
+                    txtUpdatesStatus.text = getString(R.string.updates_up_to_date, BuildConfig.VERSION_NAME)
+                }
+            }.onFailure { err ->
+                txtUpdatesStatus.text = getString(R.string.updates_error, err.message ?: "error")
+            }
+        }
+    }
+
+    private fun downloadOrInstallUpdate() {
+        val info = availableUpdate ?: return
+        val ready = downloadedApk
+        if (ready != null && ready.exists()) {
+            triggerInstall(ready)
+            return
+        }
+
+        btnCheckUpdates.isEnabled = false
+        btnInstallUpdate.isEnabled = false
+        txtUpdatesStatus.text = getString(R.string.updates_downloading, 0)
+
+        Updater.downloadAsync(
+            context = this,
+            info = info,
+            onProgress = { done, total ->
+                val pct = if (total > 0) ((done * 100L) / total).toInt().coerceIn(0, 100) else 0
+                txtUpdatesStatus.text = getString(R.string.updates_downloading, pct)
+            },
+            onComplete = { result ->
+                btnCheckUpdates.isEnabled = true
+                btnInstallUpdate.isEnabled = true
+                result.onSuccess { file ->
+                    downloadedApk = file
+                    txtUpdatesStatus.text = getString(R.string.updates_ready)
+                    triggerInstall(file)
+                }.onFailure { err ->
+                    txtUpdatesStatus.text = getString(R.string.updates_error, err.message ?: "error")
+                }
+            }
+        )
+    }
+
+    private fun triggerInstall(file: File) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !Updater.canRequestPackageInstalls(this)) {
+            startActivity(
+                Intent(
+                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")
+                )
+            )
+            return
+        }
+        Updater.installApk(this, file)
     }
 
     private fun handleMicIntent(intent: Intent?) {
@@ -233,14 +333,6 @@ class MainActivity : Activity(), IndonesianVoiceController.Listener {
                 IndonesianVoiceController.Availability.UNAVAILABLE ->
                     getString(R.string.voice_unavailable)
             }
-        }
-
-        val hasInternet = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.INTERNET
-        ) == PackageManager.PERMISSION_GRANTED
-        if (!hasInternet) {
-            txtPrivacyInternet.text = getString(R.string.privacy_no_internet)
         }
     }
 

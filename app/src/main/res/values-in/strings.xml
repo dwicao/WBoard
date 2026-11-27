@@ -33,10 +33,30 @@
     <string name="voice_test_error">Error suara: %s</string>
 
     <string name="privacy_section_title">Audit Privasi &amp; Keamanan</string>
-    <string name="privacy_no_internet">• Tanpa izin INTERNET di manifest aplikasi</string>
+    <string name="privacy_no_internet">• Tanpa telemetri atau koneksi latar belakang (internet hanya saat Anda cek pembaruan)</string>
     <string name="privacy_no_backup">• Pencadangan cloud &amp; transfer perangkat dinonaktifkan</string>
-    <string name="privacy_password_shield">• Kolom kata sandi &amp; samaran otomatis mematikan prediksi, belajar kata &amp; mikrofon</string>
-    <string name="privacy_local_only">• Prediksi &amp; kata tersimpan tetap 100% di perangkat</string>
+    <string name="privacy_password_shield">• Kolom kata sandi otomatis mematikan prediksi, belajar kata, clipboard &amp; mikrofon</string>
+    <string name="privacy_local_only">• Prediksi &amp; riwayat clipboard (RAM-only) tetap 100% di perangkat</string>
+
+    <string name="updates_section_title">Pembaruan Aplikasi</string>
+    <string name="updates_current_version">Terpasang: v%1$s (%2$d)</string>
+    <string name="updates_idle">Cek GitHub Releases via version.json (manual)</string>
+    <string name="updates_checking">Memeriksa version.json…</string>
+    <string name="updates_up_to_date">Sudah versi terbaru (v%s).</string>
+    <string name="updates_available">Versi baru v%1$s (%2$s) tersedia</string>
+    <string name="updates_downloading">Mengunduh pembaruan… %d%%</string>
+    <string name="updates_ready">SHA-256 terverifikasi. Siap dipasang.</string>
+    <string name="updates_error">Gagal memeriksa pembaruan: %s</string>
+    <string name="btn_check_updates">Cek Pembaruan</string>
+    <string name="btn_install_update">Unduh &amp; Pasang</string>
+
+    <string name="clipboard_title">Clipboard (Privat · RAM-only)</string>
+    <string name="clipboard_clear">Hapus</string>
+    <string name="clipboard_empty">Clipboard kosong</string>
+    <string name="cat_clipboard">Clipboard Privat</string>
+    <string name="pref_clipboard_enabled">Tampilkan Tombol Clipboard</string>
+    <string name="pref_clipboard_history">Simpan Riwayat Sesi (RAM saja)</string>
+    <string name="pref_clipboard_history_desc">Tidak pernah disimpan ke penyimpanan; melewati klip sensitif</string>
 
     <string name="playground_title">Uji Coba Keyboard &amp; Suara</string>
     <string name="playground_hint">Ketik di sini atau ketuk ikon mikrofon di keyboard…</string>

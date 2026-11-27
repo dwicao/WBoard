@@ -278,5 +278,50 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <!-- Private Clipboard -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cat_clipboard"
+                android:textColor="@color/wb_accent"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <Switch
+                android:id="@+id/switch_clipboard_enabled"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/pref_clipboard_enabled"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_clipboard_history"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_clipboard_history"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/pref_clipboard_history_desc"
+                android:textColor="@color/wb_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
     </LinearLayout>
 </ScrollView>
