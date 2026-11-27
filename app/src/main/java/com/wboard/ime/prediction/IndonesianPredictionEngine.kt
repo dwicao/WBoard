@@ -191,13 +191,16 @@ class IndonesianPredictionEngine {
             }
         }
 
-        // 3. Fuzzy typo correction if no exact word match (or few prefix candidates)
+        // 3. Fuzzy typo correction if no exact word match
         var fuzzyBest: String? = null
         if (!exactKnown && shorthandTarget == null && lower.length >= 2) {
             val fuzzyMatches = findFuzzyMatches(lower, limit = maxResults)
             if (fuzzyMatches.isNotEmpty()) {
                 val topFuzzy = applyCase(fuzzyMatches.first().first, trimmed)
-                if (enableAutocorrect && fuzzyMatches.first().second <= AUTO_COMMIT_MAX_DIST) {
+                if (enableAutocorrect &&
+                    prefixCandidates.isEmpty() &&
+                    fuzzyMatches.first().second <= AUTO_COMMIT_MAX_DIST
+                ) {
                     fuzzyBest = topFuzzy
                 }
                 // Place best correction first if no prefix matches or if confident
@@ -215,8 +218,15 @@ class IndonesianPredictionEngine {
             }
         }
 
-        // Ensure verbatim option is visible when autocorrect might change what the user typed
-        if (suggestions.isNotEmpty() &&
+        val autoCommit = when {
+            !enableAutocorrect -> null
+            shorthandTarget != null -> applyCase(shorthandTarget, trimmed)
+            fuzzyBest != null -> fuzzyBest
+            else -> null
+        }
+
+        // Ensure verbatim option is visible when autocorrect would rewrite what the user typed
+        if (autoCommit != null &&
             !exactKnown &&
             suggestions.none { it.text.equals(trimmed, ignoreCase = true) }
         ) {
@@ -225,13 +235,6 @@ class IndonesianPredictionEngine {
             } else if (suggestions.size >= 2) {
                 suggestions[suggestions.lastIndex] = Suggestion(trimmed, isVerbatim = true)
             }
-        }
-
-        val autoCommit = when {
-            !enableAutocorrect -> null
-            shorthandTarget != null -> applyCase(shorthandTarget, trimmed)
-            fuzzyBest != null -> fuzzyBest
-            else -> null
         }
 
         return PredictionResult(suggestions.take(maxResults), autoCommit)

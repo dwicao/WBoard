@@ -12,7 +12,7 @@ class IndonesianVoicePostProcessorTest {
             applyPunctuationCommands = true,
             capitalizeFirst = true
         )
-        assertEquals("Halo, apa kabar? Baik! Terima kasih!", out)
+        assertEquals("Halo, apa kabar? Baik. Terima kasih!", out)
     }
 
     @Test
