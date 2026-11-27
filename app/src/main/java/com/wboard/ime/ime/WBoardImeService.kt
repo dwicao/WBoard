@@ -20,8 +20,11 @@ import com.wboard.ime.prediction.UserLexiconStore
 import com.wboard.ime.prefs.WBoardPrefs
 import com.wboard.ime.privacy.PrivacyGuard
 import com.wboard.ime.ui.KeyboardTheme
+import com.wboard.ime.ui.MainActivity
 import com.wboard.ime.ui.SettingsActivity
 import com.wboard.ime.voice.IndonesianVoiceController
+import com.wboard.ime.voice.VoiceInputActivity
+import com.wboard.ime.voice.VoiceResultBridge
 import java.util.concurrent.Executors
 
 class WBoardImeService : InputMethodService(),
@@ -52,6 +55,7 @@ class WBoardImeService : InputMethodService(),
     private var lastAutoCommitCandidate: String? = null
     private var lastShiftTapTime: Long = 0L
     private var lastSpaceTapTime: Long = 0L
+    private var voiceIsOnDevice: Boolean = false
 
     private val prefListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         mainHandler.post { applyPreferencesAndTheme() }
@@ -131,6 +135,13 @@ class WBoardImeService : InputMethodService(),
             KeyboardMode.NUMERIC
         } else {
             KeyboardMode.ALPHA
+        }
+
+        VoiceResultBridge.consumePending()?.let { voiceText ->
+            if (!fieldPolicy.isPasswordOrSensitive) {
+                val needsSpace = !voiceText.endsWith("\n") && !voiceText.endsWith(" ")
+                currentInputConnection?.commitText(if (needsSpace) "$voiceText " else voiceText, 1)
+            }
         }
 
         extractPreviousWordFromCursor()
@@ -278,17 +289,22 @@ class WBoardImeService : InputMethodService(),
             voiceController.stopListening()
             return
         }
+        if (!IndonesianVoiceController.hasAudioPermission(this)) {
+            val intent = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                putExtra(MainActivity.EXTRA_REQUEST_MIC, true)
+            }
+            startActivity(intent)
+            return
+        }
         commitComposingRaw()
         val before = currentInputConnection?.getTextBeforeCursor(16, 0)?.toString().orEmpty()
         val capFirst = before.isBlank() || isSentenceBoundaryChar(before.trimEnd().lastOrNull())
-        val started = voiceController.startListening(
+        voiceController.startListening(
             strictOffline = prefs.voiceStrictOffline,
             applyPunctuation = prefs.voicePunctuationEnabled,
             capitalizeFirst = capFirst
         )
-        if (!started) {
-            // Listener onVoiceError handles status update
-        }
     }
 
     override fun onVoiceCancelClicked() {
@@ -307,6 +323,7 @@ class WBoardImeService : InputMethodService(),
     // --- IndonesianVoiceController.Listener ---
 
     override fun onListeningStarted(onDevice: Boolean) {
+        voiceIsOnDevice = onDevice
         suggestionStrip?.setVoiceState(
             active = true,
             onDevice = onDevice,
@@ -323,8 +340,7 @@ class WBoardImeService : InputMethodService(),
         currentInputConnection?.setComposingText(text, 1)
         suggestionStrip?.setVoiceState(
             active = true,
-            onDevice = IndonesianVoiceController.checkAvailability(this) ==
-                IndonesianVoiceController.Availability.ON_DEVICE_READY && prefs.voiceStrictOffline,
+            onDevice = voiceIsOnDevice,
             partialText = text
         )
     }
@@ -346,6 +362,21 @@ class WBoardImeService : InputMethodService(),
     override fun onVoiceError(reason: String) {
         currentInputConnection?.setComposingText("", 1)
         currentInputConnection?.finishComposingText()
+
+        if (reason == "fallback_activity" && IndonesianVoiceController.isActivityAvailable(this)) {
+            suggestionStrip?.setVoiceState(active = false)
+            val before = currentInputConnection?.getTextBeforeCursor(16, 0)?.toString().orEmpty()
+            val capFirst = before.isBlank() || isSentenceBoundaryChar(before.trimEnd().lastOrNull())
+            val intent = Intent(this, VoiceInputActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                putExtra(VoiceInputActivity.EXTRA_PUNCTUATION, prefs.voicePunctuationEnabled)
+                putExtra(VoiceInputActivity.EXTRA_CAPITALIZE, capFirst)
+                putExtra(VoiceInputActivity.EXTRA_PREFER_OFFLINE, prefs.voiceStrictOffline)
+            }
+            startActivity(intent)
+            return
+        }
+
         val message = when (reason) {
             "no_permission" -> getString(R.string.ime_voice_no_permission)
             "offline_unavailable" -> getString(R.string.ime_voice_unavailable)

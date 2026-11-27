@@ -106,6 +106,31 @@ object KeyboardLayouts {
         )
     )
 
+    private val SYMBOL_ROWS_5 = listOf(
+        NUMBER_ROW,
+        listOf(
+            key('@'), key('#'), key('$'), key('_'), key('&'),
+            key('-'), key('+'), key('('), key(')'), key('/')
+        ),
+        listOf(
+            key('~'), key('`'), key('|'), key('•'), key('√'),
+            key('÷'), key('×'), key('{'), key('}'), key('\\')
+        ),
+        listOf(
+            KeySpec(KeyCode.MODE_MORE_SYMBOLS, "=\\<", weight = 1.45f, isSpecial = true),
+            key('*'), key('"'), key('\''), key(':'),
+            key(';'), key('!'), key('?'),
+            KeySpec(KeyCode.BACKSPACE, "⌫", weight = 1.45f, isSpecial = true)
+        ),
+        listOf(
+            KeySpec(KeyCode.MODE_ALPHA, "ABC", weight = 1.4f, isSpecial = true),
+            key(','),
+            KeySpec(KeyCode.SPACE, "Spasi", weight = 4.6f),
+            key('.'),
+            KeySpec(KeyCode.ENTER, "↵", weight = 1.5f, isAccent = true)
+        )
+    )
+
     private val MORE_SYMBOL_ROWS = listOf(
         listOf(
             key('~'), key('`'), key('|'), key('•'), key('√'),
@@ -130,6 +155,8 @@ object KeyboardLayouts {
         )
     )
 
+    private val MORE_SYMBOL_ROWS_5 = listOf(NUMBER_ROW) + MORE_SYMBOL_ROWS
+
     private val NUMERIC_ROWS = listOf(
         listOf(key('1'), key('2'), key('3'), key('-', isSpecial = true)),
         listOf(key('4'), key('5'), key('6'), key('+', isSpecial = true)),
@@ -140,8 +167,8 @@ object KeyboardLayouts {
     fun rowsFor(mode: KeyboardMode, showNumberRow: Boolean): List<List<KeySpec>> {
         return when (mode) {
             KeyboardMode.ALPHA -> if (showNumberRow) listOf(NUMBER_ROW) + ALPHA_ROWS else ALPHA_ROWS
-            KeyboardMode.SYMBOLS -> SYMBOL_ROWS
-            KeyboardMode.MORE_SYMBOLS -> MORE_SYMBOL_ROWS
+            KeyboardMode.SYMBOLS -> if (showNumberRow) SYMBOL_ROWS_5 else SYMBOL_ROWS
+            KeyboardMode.MORE_SYMBOLS -> if (showNumberRow) MORE_SYMBOL_ROWS_5 else MORE_SYMBOL_ROWS
             KeyboardMode.NUMERIC -> NUMERIC_ROWS
         }
     }

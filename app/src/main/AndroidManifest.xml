@@ -13,10 +13,13 @@
         android:name="android.hardware.microphone"
         android:required="false" />
 
-    <!-- Required on Android 11+ (API 30+) to detect on-device speech recognition -->
+    <!-- Required on Android 11+ (API 30+) to detect on-device and system speech recognition -->
     <queries>
         <intent>
             <action android:name="android.speech.RecognitionService" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
         </intent>
     </queries>
 
@@ -46,6 +49,12 @@
             android:exported="true"
             android:label="@string/settings_title"
             android:parentActivityName=".ui.MainActivity" />
+
+        <activity
+            android:name=".voice.VoiceInputActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <service
             android:name=".ime.WBoardImeService"

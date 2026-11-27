@@ -128,9 +128,8 @@ class WBoardKeyboardView @JvmOverloads constructor(
         hapticsEnabled: Boolean,
         enterLabel: String
     ) {
-        val relayout = this.mode != mode ||
-            this.showNumberRow != showNumberRow ||
-            this.heightScale != heightScale
+        val heightChanged = this.showNumberRow != showNumberRow || this.heightScale != heightScale
+        val modeChanged = this.mode != mode
         this.mode = mode
         this.shiftState = shiftState
         this.showNumberRow = showNumberRow
@@ -139,8 +138,10 @@ class WBoardKeyboardView @JvmOverloads constructor(
         this.hapticsEnabled = hapticsEnabled
         this.enterLabel = enterLabel
 
-        if (relayout) {
+        if (heightChanged) {
             requestLayout()
+        }
+        if (modeChanged || heightChanged) {
             layoutKeys(width, height)
         }
         invalidate()
@@ -148,19 +149,28 @@ class WBoardKeyboardView @JvmOverloads constructor(
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec)
-        val rows = KeyboardLayouts.rowsFor(mode, showNumberRow).size
-        val rowH = if (mode == KeyboardMode.ALPHA && showNumberRow) {
-            46f * density * heightScale
-        } else {
-            52f * density * heightScale
-        }
-        val totalH = (rows * rowH + 14f * density).toInt()
+        val totalH = computeKeyboardHeightPx()
         setMeasuredDimension(w, totalH)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         layoutKeys(w, h)
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        layoutKeys(right - left, bottom - top)
+    }
+
+    private fun computeKeyboardHeightPx(): Int {
+        // Keep keyboard height 100% constant across ALPHA, SYMBOLS, MORE_SYMBOLS, and NUMERIC
+        // so switching layouts never causes height jumps or inconsistent key sizes.
+        val rowCount = if (showNumberRow) 5 else 4
+        val rowH = if (showNumberRow) 46f * density * heightScale else 52f * density * heightScale
+        val rowGap = 6f * density
+        val padVertical = 14f * density
+        return (rowCount * rowH + (rowCount - 1) * rowGap + padVertical).toInt()
     }
 
     private fun layoutKeys(totalW: Int, totalH: Int) {

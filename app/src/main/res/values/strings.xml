@@ -27,9 +27,14 @@
     <!-- Voice Status -->
     <string name="voice_section_title">Indonesian Voice Engine (id-ID)</string>
     <string name="voice_on_device_ready">On-device offline Indonesian speech recognition is available.</string>
-    <string name="voice_system_only">System speech service found. Enable Strict Offline mode or install offline id-ID pack in system speech settings.</string>
+    <string name="voice_system_only">System speech recognition is ready (uses offline preference with auto-fallback).</string>
+    <string name="voice_activity_only">Speech dialog fallback is available for Indonesian (id-ID).</string>
     <string name="voice_unavailable">No speech recognizer found on this device.</string>
     <string name="btn_voice_settings">Speech Settings</string>
+    <string name="btn_test_voice">Test Voice (ID)</string>
+    <string name="voice_test_listening">Speak Indonesian now…</string>
+    <string name="voice_test_result">Recognized: %s</string>
+    <string name="voice_test_error">Voice error: %s</string>
 
     <!-- Privacy Audit -->
     <string name="privacy_section_title">Privacy &amp; Security Audit</string>

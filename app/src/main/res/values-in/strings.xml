@@ -23,9 +23,14 @@
 
     <string name="voice_section_title">Mesin Suara Indonesia (id-ID)</string>
     <string name="voice_on_device_ready">Pengenalan suara Indonesia offline di perangkat tersedia.</string>
-    <string name="voice_system_only">Layanan suara sistem ditemukan. Gunakan mode Offline Ketat atau unduh paket id-ID offline di pengaturan suara.</string>
+    <string name="voice_system_only">Pengenal suara sistem siap dipakai (utamakan offline dengan fallback otomatis).</string>
+    <string name="voice_activity_only">Dialog suara sistem tersedia untuk Bahasa Indonesia (id-ID).</string>
     <string name="voice_unavailable">Pengenal suara tidak ditemukan di perangkat ini.</string>
     <string name="btn_voice_settings">Pengaturan Suara</string>
+    <string name="btn_test_voice">Tes Suara (ID)</string>
+    <string name="voice_test_listening">Silakan bicara Bahasa Indonesia…</string>
+    <string name="voice_test_result">Terdeteksi: %s</string>
+    <string name="voice_test_error">Error suara: %s</string>
 
     <string name="privacy_section_title">Audit Privasi &amp; Keamanan</string>
     <string name="privacy_no_internet">• Tanpa izin INTERNET di manifest aplikasi</string>

@@ -88,11 +88,12 @@ class WBoardPrefs(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_VOICE_ENABLED, value).apply()
 
     /**
-     * Enabled by default for privacy: enforces on-device recognition on Android 12+
-     * and requests offline-only recognition on older Android versions.
+     * When true, enforces on-device recognition on Android 12+ without fallback.
+     * Defaults to false (Prefer Offline with automatic fallback) so Indonesian voice
+     * works out-of-the-box even if an offline id-ID pack is not yet downloaded.
      */
     var voiceStrictOffline: Boolean
-        get() = prefs.getBoolean(KEY_VOICE_STRICT_OFFLINE, true)
+        get() = prefs.getBoolean(KEY_VOICE_STRICT_OFFLINE, false)
         set(value) = prefs.edit().putBoolean(KEY_VOICE_STRICT_OFFLINE, value).apply()
 
     var voicePunctuationEnabled: Boolean

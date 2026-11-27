@@ -25,12 +25,23 @@ class IndonesianPredictionEngineTest {
             saya	8600
             selalu	4200
             selesai	2700
+            gue	8400
+            gw	8300
+            gak	8600
+            mager	6900
+            gabut	6850
+            gpp	7650
+            udah	8350
         """.trimIndent().byteInputStream()
 
         val bigrams = """
             selamat	pagi	950
             selamat	malam	920
             terima	kasih	990
+            gue	lagi	960
+            gue	mau	940
+            lagi	gabut	930
+            lagi	mager	910
         """.trimIndent().byteInputStream()
 
         val shorthands = """
@@ -81,5 +92,19 @@ class IndonesianPredictionEngineTest {
     fun allCapsInput_preservesUpperCase() {
         val res = engine.suggest("TER", previousWord = null)
         assertEquals("TERIMA", res.suggestions[0].text)
+    }
+
+    @Test
+    fun informalAndGaulWords_areNotOverwrittenAndPredictNextWord() {
+        val gaulWord = engine.suggest("gw", previousWord = null, enableShorthand = true, enableAutocorrect = true)
+        assertNull(gaulWord.autoCommitCandidate)
+        assertEquals("gw", gaulWord.suggestions[0].text)
+
+        val gaulPrefix = engine.suggest("mag", previousWord = null)
+        assertEquals("mager", gaulPrefix.suggestions[0].text)
+
+        val gaulNext = engine.suggest("", previousWord = "gue")
+        assertEquals("lagi", gaulNext.suggestions[0].text)
+        assertEquals("mau", gaulNext.suggestions[1].text)
     }
 }
