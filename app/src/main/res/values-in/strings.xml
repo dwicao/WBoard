@@ -69,7 +69,7 @@
     <string name="pref_clipboard_history_desc">Tidak pernah disimpan ke penyimpanan; melewati klip sensitif</string>
 
     <string name="playground_title">Uji Coba Keyboard &amp; Suara</string>
-    <string name="playground_hint">Ketik di sini atau ketuk ikon mikrofon di keyboard…</string>
+    <string name="playground_hint">Ketik di sini atau tahan Spasi untuk suara…</string>
     <string name="btn_open_settings">Preferensi Keyboard</string>
 
     <string name="cat_appearance">Tampilan &amp; Tata Letak</string>

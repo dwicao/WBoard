@@ -255,24 +255,32 @@ class WBoardImeService : InputMethodService(),
             KeyCode.SPACE -> handleSpace(ic)
             KeyCode.ENTER -> handleEnter(ic)
             KeyCode.MODE_SYMBOLS -> {
-                commitComposingRaw()
+                if (composingWord.isNotEmpty()) commitComposingRaw()
                 currentMode = KeyboardMode.SYMBOLS
                 refreshKeyboardView()
             }
             KeyCode.MODE_MORE_SYMBOLS -> {
-                commitComposingRaw()
+                if (composingWord.isNotEmpty()) commitComposingRaw()
                 currentMode = KeyboardMode.MORE_SYMBOLS
                 refreshKeyboardView()
             }
             KeyCode.MODE_ALPHA -> {
                 currentMode = KeyboardMode.ALPHA
-                updateAutoCapitalization()
                 refreshKeyboardView()
             }
             else -> {
                 val str = text ?: return
                 handleTextInput(ic, str)
             }
+        }
+    }
+
+    override fun onKeyHoldAction(action: HoldAction) {
+        when (action) {
+            HoldAction.CLIPBOARD -> toggleClipboardPanel()
+            HoldAction.VOICE -> onVoiceClicked()
+            HoldAction.SETTINGS -> openSettings()
+            HoldAction.NONE -> Unit
         }
     }
 
@@ -334,7 +342,7 @@ class WBoardImeService : InputMethodService(),
         refreshSuggestions()
     }
 
-    override fun onClipboardClicked() {
+    private fun toggleClipboardPanel() {
         if (!prefs.clipboardEnabled || fieldPolicy.isPasswordOrSensitive) return
         if (voiceController.isActive()) {
             voiceController.cancel()
@@ -415,7 +423,6 @@ class WBoardImeService : InputMethodService(),
 
     private fun setClipboardOpen(open: Boolean) {
         isClipboardOpen = open && prefs.clipboardEnabled && !fieldPolicy.isPasswordOrSensitive
-        suggestionStrip?.setClipboardActive(isClipboardOpen)
         if (isClipboardOpen) {
             val h = keyboardView?.currentTargetHeightPx() ?: 0
             clipboardPanel?.apply {
@@ -465,7 +472,7 @@ class WBoardImeService : InputMethodService(),
         return if (text != null) listOf(text) else emptyList()
     }
 
-    override fun onSettingsClicked() {
+    private fun openSettings() {
         val intent = Intent(this, SettingsActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
@@ -765,12 +772,7 @@ class WBoardImeService : InputMethodService(),
         rootContainer?.setBackgroundColor(currentTheme.background)
         suggestionStrip?.apply {
             applyTheme(currentTheme)
-            setPolicyState(
-                passwordMode = fieldPolicy.isPasswordOrSensitive,
-                allowMic = prefs.voiceInputEnabled && fieldPolicy.allowVoiceInput,
-                allowClipboard = prefs.clipboardEnabled && !fieldPolicy.isPasswordOrSensitive
-            )
-            setClipboardActive(isClipboardOpen)
+            setPolicyState(passwordMode = fieldPolicy.isPasswordOrSensitive)
         }
         if (!prefs.clipboardEnabled || fieldPolicy.isPasswordOrSensitive) {
             setClipboardOpen(false)

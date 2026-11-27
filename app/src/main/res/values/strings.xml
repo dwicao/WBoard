@@ -77,7 +77,7 @@
 
     <!-- Test Playground -->
     <string name="playground_title">Test Keyboard &amp; Voice</string>
-    <string name="playground_hint">Ketik di sini atau ketuk ikon mikrofon di keyboard…</string>
+    <string name="playground_hint">Type here or hold Spacebar for voice…</string>
     <string name="btn_open_settings">Keyboard Preferences</string>
 
     <!-- Settings Screen -->

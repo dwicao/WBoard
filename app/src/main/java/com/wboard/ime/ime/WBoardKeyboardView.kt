@@ -16,12 +16,12 @@ import com.wboard.ime.ui.KeyboardTheme
 import kotlin.math.abs
 
 /**
- * Lightweight Canvas-drawn keyboard view with:
- * - Zero child View inflation overhead
- * - Spacebar horizontal swipe cursor movement
- * - Hold-to-repeat backspace (escalating to word deletion)
- * - Long-press inline option popup (numbers on top row, diacritics, punctuation on '.')
- * - Optional key press preview popup
+ * Hardware-accelerated Canvas keyboard view with:
+ * - Instant ACTION_DOWN shift & zero-allocation draw loop
+ * - Constant height across all layouts (ALPHA, SYMBOLS, MORE_SYMBOLS, NUMERIC)
+ * - Spacebar horizontal swipe cursor movement + hold for Indonesian voice input
+ * - Hold '?123' for Clipboard, hold ',' for Settings
+ * - Dynamic top-row long-press (symbols when number row is shown, numbers when hidden)
  */
 class WBoardKeyboardView @JvmOverloads constructor(
     context: Context,
@@ -30,6 +30,7 @@ class WBoardKeyboardView @JvmOverloads constructor(
 
     interface Listener {
         fun onKeyInput(code: Int, text: String?)
+        fun onKeyHoldAction(action: HoldAction)
         fun onDeleteWord()
         fun onMoveCursor(deltaChars: Int)
     }
@@ -51,7 +52,7 @@ class WBoardKeyboardView @JvmOverloads constructor(
     private var enterLabel: String = "↵"
 
     private val density = resources.displayMetrics.density
-    private val keyBoxes = ArrayList<KeyBox>(48)
+    private val keyBoxes = ArrayList<KeyBox>(52)
 
     private var activePointerId: Int = MotionEvent.INVALID_POINTER_ID
     private var pressedKey: KeyBox? = null
@@ -69,6 +70,9 @@ class WBoardKeyboardView @JvmOverloads constructor(
     private var backspaceHeldMillis: Long = 0L
     private val handler = Handler(Looper.getMainLooper())
 
+    private val normalTypeface: Typeface = Typeface.DEFAULT
+    private val boldTypeface: Typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val keyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -78,15 +82,38 @@ class WBoardKeyboardView @JvmOverloads constructor(
         textAlign = Paint.Align.RIGHT
         textSize = 9.5f * density
     }
-    private val popupPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        setShadowLayer(6f * density, 0f, 2f * density, 0x33000000)
+    private val microIconPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1.25f * density
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val microFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+    private val popupPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val popupBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1.1f * density
     }
 
     private val tempRect = RectF()
+    private val popupContainerRect = RectF()
 
     private val longPressRunnable = Runnable {
         val key = pressedKey ?: return@Runnable
         if (key.spec.code == KeyCode.BACKSPACE) return@Runnable
+
+        if (key.spec.holdAction != HoldAction.NONE) {
+            val action = key.spec.holdAction
+            pressedKey = null
+            spaceSwipeActive = false
+            activePointerId = MotionEvent.INVALID_POINTER_ID
+            performHapticIfEnabled()
+            invalidate()
+            listener?.onKeyHoldAction(action)
+            return@Runnable
+        }
+
         if (key.spec.longPressOptions.isNotEmpty()) {
             longPressKey = key
             selectedLongPressIndex = 0
@@ -110,13 +137,11 @@ class WBoardKeyboardView @JvmOverloads constructor(
         }
     }
 
-    init {
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
-    }
-
     fun applyTheme(newTheme: KeyboardTheme) {
-        theme = newTheme
-        invalidate()
+        if (theme != newTheme) {
+            theme = newTheme
+            invalidate()
+        }
     }
 
     fun configure(
@@ -130,6 +155,13 @@ class WBoardKeyboardView @JvmOverloads constructor(
     ) {
         val heightChanged = this.showNumberRow != showNumberRow || this.heightScale != heightScale
         val modeChanged = this.mode != mode
+        val visualChanged = heightChanged ||
+            modeChanged ||
+            this.shiftState != shiftState ||
+            this.keyPopupEnabled != keyPopupEnabled ||
+            this.hapticsEnabled != hapticsEnabled ||
+            this.enterLabel != enterLabel
+
         this.mode = mode
         this.shiftState = shiftState
         this.showNumberRow = showNumberRow
@@ -144,13 +176,14 @@ class WBoardKeyboardView @JvmOverloads constructor(
         if (modeChanged || heightChanged) {
             layoutKeys(width, height)
         }
-        invalidate()
+        if (visualChanged) {
+            invalidate()
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val w = MeasureSpec.getSize(widthMeasureSpec)
-        val totalH = computeKeyboardHeightPx()
-        setMeasuredDimension(w, totalH)
+        setMeasuredDimension(w, computeKeyboardHeightPx())
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -160,14 +193,14 @@ class WBoardKeyboardView @JvmOverloads constructor(
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
         super.onLayout(changed, left, top, right, bottom)
-        layoutKeys(right - left, bottom - top)
+        if (changed || keyBoxes.isEmpty()) {
+            layoutKeys(right - left, bottom - top)
+        }
     }
 
     fun currentTargetHeightPx(): Int = computeKeyboardHeightPx()
 
     private fun computeKeyboardHeightPx(): Int {
-        // Keep keyboard height 100% constant across ALPHA, SYMBOLS, MORE_SYMBOLS, and NUMERIC
-        // so switching layouts never causes height jumps or inconsistent key sizes.
         val rowCount = if (showNumberRow) 5 else 4
         val rowH = if (showNumberRow) 46f * density * heightScale else 52f * density * heightScale
         val rowGap = 6f * density
@@ -193,7 +226,6 @@ class WBoardKeyboardView @JvmOverloads constructor(
             val row = rows[rIndex]
             val totalWeight = row.sumOf { it.weight.toDouble() }.toFloat()
 
-            // Center narrower rows like ASDFGHJKL (9 keys) naturally on alpha layout
             val isNineKeyAlphaRow = mode == KeyboardMode.ALPHA &&
                 ((showNumberRow && rIndex == 2) || (!showNumberRow && rIndex == 1))
             val sideInset = if (isNineKeyAlphaRow) totalW * 0.048f else 0f
@@ -206,8 +238,7 @@ class WBoardKeyboardView @JvmOverloads constructor(
             var cursorX = rowLeft
             for (spec in row) {
                 val kw = rowAvailW * (spec.weight / totalWeight)
-                val rect = RectF(cursorX, top, cursorX + kw, bottom)
-                keyBoxes.add(KeyBox(spec, rect))
+                keyBoxes.add(KeyBox(spec, RectF(cursorX, top, cursorX + kw, bottom)))
                 cursorX += kw + keyGap
             }
         }
@@ -219,42 +250,42 @@ class WBoardKeyboardView @JvmOverloads constructor(
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
 
         val cornerRadius = 7.5f * density
-        for (box in keyBoxes) {
+        for (i in 0 until keyBoxes.size) {
+            val box = keyBoxes[i]
+            val spec = box.spec
             val isPressed = box == pressedKey && !spaceSwipeActive
             keyPaint.color = when {
-                box.spec.isAccent -> if (isPressed) theme.keyPressedBg else theme.accentBg
+                spec.isAccent -> if (isPressed) theme.keyPressedBg else theme.accentBg
                 isPressed -> theme.keyPressedBg
-                box.spec.code == KeyCode.SHIFT && shiftState == ShiftState.CAPS_LOCK -> theme.chipHighlightBg
-                box.spec.isSpecial -> theme.specialKeyBg
+                spec.code == KeyCode.SHIFT && shiftState == ShiftState.CAPS_LOCK -> theme.chipHighlightBg
+                spec.isSpecial -> theme.specialKeyBg
                 else -> theme.keyBg
             }
             canvas.drawRoundRect(box.rect, cornerRadius, cornerRadius, keyPaint)
 
-            // Key label
-            val label = resolveLabel(box.spec)
+            val label = resolveLabel(spec)
             val isSmallText = label.length > 2
             labelPaint.textSize = when {
-                box.spec.code == KeyCode.SPACE -> 12f * density
+                spec.code == KeyCode.SPACE -> 12f * density
                 isSmallText -> 13f * density
                 else -> 19.5f * density
             }
-            labelPaint.typeface = if (box.spec.isAccent || (box.spec.code == KeyCode.SHIFT && shiftState != ShiftState.OFF)) {
-                Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            labelPaint.typeface = if (spec.isAccent || (spec.code == KeyCode.SHIFT && shiftState != ShiftState.OFF)) {
+                boldTypeface
             } else {
-                Typeface.DEFAULT
+                normalTypeface
             }
             labelPaint.color = when {
-                box.spec.isAccent -> theme.accentText
-                box.spec.code == KeyCode.SPACE -> theme.textSecondary
-                box.spec.code == KeyCode.SHIFT && shiftState != ShiftState.OFF -> theme.accentBg
+                spec.isAccent -> theme.accentText
+                spec.code == KeyCode.SPACE -> theme.textSecondary
+                spec.code == KeyCode.SHIFT && shiftState != ShiftState.OFF -> theme.accentBg
                 else -> theme.textPrimary
             }
             val ly = box.rect.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f
             canvas.drawText(label, box.rect.centerX(), ly, labelPaint)
 
-            // Secondary hint in top-right corner
-            val hint = box.spec.hint
-            if (hint != null && !(mode == KeyboardMode.ALPHA && showNumberRow && hint[0].isDigit())) {
+            val hint = spec.hint
+            if (hint != null) {
                 hintPaint.color = theme.textSecondary
                 canvas.drawText(
                     hint,
@@ -262,10 +293,11 @@ class WBoardKeyboardView @JvmOverloads constructor(
                     box.rect.top + 11f * density,
                     hintPaint
                 )
+            } else if (spec.holdAction != HoldAction.NONE) {
+                drawHoldActionMicroHint(canvas, box, spec.holdAction)
             }
         }
 
-        // Draw key press preview popup or long-press options popup
         val lpKey = longPressKey
         if (lpKey != null && longPressOptionRects.isNotEmpty()) {
             drawLongPressPopup(canvas, lpKey)
@@ -274,6 +306,39 @@ class WBoardKeyboardView @JvmOverloads constructor(
             if (pk != null && !pk.spec.isSpecial && pk.spec.code != KeyCode.SPACE) {
                 drawKeyPreviewPopup(canvas, pk)
             }
+        }
+    }
+
+    private fun drawHoldActionMicroHint(canvas: Canvas, box: KeyBox, action: HoldAction) {
+        microIconPaint.color = theme.textSecondary
+        microFillPaint.color = theme.textSecondary
+        when (action) {
+            HoldAction.CLIPBOARD -> {
+                val cx = box.rect.right - 8f * density
+                val cy = box.rect.top + 8.5f * density
+                tempRect.set(cx - 2.6f * density, cy - 3.2f * density, cx + 2.6f * density, cy + 3.4f * density)
+                canvas.drawRoundRect(tempRect, 1f * density, 1f * density, microIconPaint)
+                canvas.drawLine(cx - 1.3f * density, cy - 3.6f * density, cx + 1.3f * density, cy - 3.6f * density, microIconPaint)
+            }
+            HoldAction.SETTINGS -> {
+                val cx = box.rect.right - 8f * density
+                val cy = box.rect.top + 8.5f * density
+                canvas.drawCircle(cx, cy, 2.3f * density, microIconPaint)
+                canvas.drawCircle(cx, cy, 0.8f * density, microFillPaint)
+            }
+            HoldAction.VOICE -> {
+                val cx = box.rect.right - 13f * density
+                val cy = box.rect.centerY()
+                val cw = 2.0f * density
+                val ch = 3.2f * density
+                tempRect.set(cx - cw, cy - ch - 0.5f * density, cx + cw, cy + 0.8f * density)
+                canvas.drawRoundRect(tempRect, cw, cw, microFillPaint)
+                val ar = 3.4f * density
+                tempRect.set(cx - ar, cy - 2.0f * density, cx + ar, cy + 2.6f * density)
+                canvas.drawArc(tempRect, 0f, 180f, false, microIconPaint)
+                canvas.drawLine(cx, cy + 2.6f * density, cx, cy + 4.5f * density, microIconPaint)
+            }
+            HoldAction.NONE -> Unit
         }
     }
 
@@ -286,11 +351,13 @@ class WBoardKeyboardView @JvmOverloads constructor(
         tempRect.set(cx - popupW / 2f, top, cx + popupW / 2f, top + popupH)
 
         popupPaint.color = theme.popupBg
+        popupBorderPaint.color = theme.divider
         canvas.drawRoundRect(tempRect, 9f * density, 9f * density, popupPaint)
+        canvas.drawRoundRect(tempRect, 9f * density, 9f * density, popupBorderPaint)
 
         labelPaint.textSize = 23f * density
         labelPaint.color = theme.textPrimary
-        labelPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        labelPaint.typeface = boldTypeface
         val ty = tempRect.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f
         canvas.drawText(resolveLabel(box.spec), tempRect.centerX(), ty, labelPaint)
     }
@@ -319,14 +386,16 @@ class WBoardKeyboardView @JvmOverloads constructor(
     private fun drawLongPressPopup(canvas: Canvas, box: KeyBox) {
         val options = box.spec.longPressOptions
         if (longPressOptionRects.isEmpty() || options.isEmpty()) return
-        val container = RectF(
+        popupContainerRect.set(
             longPressOptionRects.first().left - 3f * density,
             longPressOptionRects.first().top - 3f * density,
             longPressOptionRects.last().right + 3f * density,
             longPressOptionRects.last().bottom + 3f * density
         )
         popupPaint.color = theme.popupBg
-        canvas.drawRoundRect(container, 10f * density, 10f * density, popupPaint)
+        popupBorderPaint.color = theme.divider
+        canvas.drawRoundRect(popupContainerRect, 10f * density, 10f * density, popupPaint)
+        canvas.drawRoundRect(popupContainerRect, 10f * density, 10f * density, popupBorderPaint)
 
         for (i in options.indices) {
             val r = longPressOptionRects[i]
@@ -338,7 +407,7 @@ class WBoardKeyboardView @JvmOverloads constructor(
                 labelPaint.color = theme.textPrimary
             }
             labelPaint.textSize = 18f * density
-            labelPaint.typeface = Typeface.DEFAULT
+            labelPaint.typeface = normalTypeface
             val ty = r.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2f
             canvas.drawText(options[i], r.centerX(), ty, labelPaint)
         }
@@ -375,9 +444,9 @@ class WBoardKeyboardView @JvmOverloads constructor(
             }
 
             MotionEvent.ACTION_POINTER_DOWN -> {
-                // Fast multi-finger typing: commit previous pressed key immediately and track new finger
-                if (pressedKey != null && !spaceSwipeActive && longPressKey == null) {
-                    commitKey(pressedKey!!)
+                val prev = pressedKey
+                if (prev != null && prev.spec.code != KeyCode.SHIFT && !spaceSwipeActive && longPressKey == null) {
+                    commitKey(prev)
                 }
                 cancelPendingTimers()
                 activePointerId = event.getPointerId(index)
@@ -412,6 +481,7 @@ class WBoardKeyboardView @JvmOverloads constructor(
                     val dx = x - spaceSwipeAnchorX
                     if (!spaceSwipeActive && abs(dx) > touchSlop) {
                         spaceSwipeActive = true
+                        handler.removeCallbacks(longPressRunnable)
                         spaceSwipeAnchorX = x
                         invalidate()
                     } else if (spaceSwipeActive && abs(dx) >= spaceStepPx) {
@@ -428,7 +498,9 @@ class WBoardKeyboardView @JvmOverloads constructor(
                 if (underFinger != pressedKey && pressedKey?.spec?.code != KeyCode.BACKSPACE) {
                     cancelPendingTimers()
                     pressedKey = underFinger
-                    if (underFinger != null && underFinger.spec.longPressOptions.isNotEmpty()) {
+                    if (underFinger != null &&
+                        (underFinger.spec.holdAction != HoldAction.NONE || underFinger.spec.longPressOptions.isNotEmpty())
+                    ) {
                         handler.postDelayed(longPressRunnable, LONG_PRESS_DELAY_MS)
                     }
                     invalidate()
@@ -465,12 +537,21 @@ class WBoardKeyboardView @JvmOverloads constructor(
         pressedKey = hit
         if (hit != null) {
             performHapticIfEnabled()
-            if (hit.spec.code == KeyCode.SPACE) {
-                spaceSwipeAnchorX = x
-            } else if (hit.spec.code == KeyCode.BACKSPACE) {
-                handler.postDelayed(backspaceRepeatRunnable, INITIAL_REPEAT_DELAY_MS)
-            } else if (hit.spec.longPressOptions.isNotEmpty()) {
-                handler.postDelayed(longPressRunnable, LONG_PRESS_DELAY_MS)
+            when {
+                // Shift toggles immediately on touch-down for zero-lag responsiveness.
+                hit.spec.code == KeyCode.SHIFT -> {
+                    listener?.onKeyInput(KeyCode.SHIFT, null)
+                }
+                hit.spec.code == KeyCode.SPACE -> {
+                    spaceSwipeAnchorX = x
+                    handler.postDelayed(longPressRunnable, LONG_PRESS_DELAY_MS)
+                }
+                hit.spec.code == KeyCode.BACKSPACE -> {
+                    handler.postDelayed(backspaceRepeatRunnable, INITIAL_REPEAT_DELAY_MS)
+                }
+                hit.spec.holdAction != HoldAction.NONE || hit.spec.longPressOptions.isNotEmpty() -> {
+                    handler.postDelayed(longPressRunnable, LONG_PRESS_DELAY_MS)
+                }
             }
         }
         invalidate()
@@ -486,7 +567,10 @@ class WBoardKeyboardView @JvmOverloads constructor(
             }
         } else if (!spaceSwipeActive) {
             val key = pressedKey
-            if (key != null && !(key.spec.code == KeyCode.BACKSPACE && backspaceHeldMillis > 0L)) {
+            if (key != null &&
+                key.spec.code != KeyCode.SHIFT &&
+                !(key.spec.code == KeyCode.BACKSPACE && backspaceHeldMillis > 0L)
+            ) {
                 commitKey(key)
             }
         }
@@ -509,13 +593,14 @@ class WBoardKeyboardView @JvmOverloads constructor(
     }
 
     private fun findKeyAt(x: Float, y: Float): KeyBox? {
-        for (box in keyBoxes) {
+        for (i in 0 until keyBoxes.size) {
+            val box = keyBoxes[i]
             if (box.rect.contains(x, y)) return box
         }
-        // Nearest key within generous hit margin near edges
         var nearest: KeyBox? = null
         var bestDist = Float.MAX_VALUE
-        for (box in keyBoxes) {
+        for (i in 0 until keyBoxes.size) {
+            val box = keyBoxes[i]
             val dx = when {
                 x < box.rect.left -> box.rect.left - x
                 x > box.rect.right -> x - box.rect.right
@@ -555,9 +640,9 @@ class WBoardKeyboardView @JvmOverloads constructor(
     }
 
     companion object {
-        private const val LONG_PRESS_DELAY_MS = 380L
-        private const val INITIAL_REPEAT_DELAY_MS = 360L
-        private const val REPEAT_INTERVAL_MS = 55L
+        private const val LONG_PRESS_DELAY_MS = 320L
+        private const val INITIAL_REPEAT_DELAY_MS = 340L
+        private const val REPEAT_INTERVAL_MS = 50L
         private const val WORD_DELETE_THRESHOLD_MS = 1600L
     }
 }

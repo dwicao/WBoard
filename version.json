@@ -1,13 +1,13 @@
 {
-  "version": "1.0.4",
-  "versionCode": 5,
-  "apkUrl": "https://github.com/dwicao/WBoard/releases/download/v1.0.4/WBoard-v1.0.4-release.apk",
+  "version": "1.0.5",
+  "versionCode": 6,
+  "apkUrl": "https://github.com/dwicao/WBoard/releases/download/v1.0.5/WBoard-v1.0.5-release.apk",
   "sizeBytes": 0,
   "sha256": "",
   "releasedAt": "2026-11-27",
   "notes": [
-    "Pilihan 5 model Whisper offline dari Low hingga Max (Tiny, Base, Small, Large-v3 Turbo Q5_0 & Q8_0)",
-    "Deteksi spesifikasi HP otomatis (RAM, CPU, 64-bit) dengan rekomendasi model paling optimal",
-    "Optimasi pelepasan memori otomatis di background untuk model berukuran besar"
+    "Shift (kapital/non-kapital) & pergantian mode Simbol kini instan dengan hardware-accelerated Canvas",
+    "Bar atas penuh untuk prediksi teks; hold '?123' untuk Clipboard, hold Spasi untuk Mic, hold ',' untuk Pengaturan",
+    "Hold baris qwertyuiop otomatis input simbol jika baris angka aktif, atau angka jika baris angka disembunyikan"
   ]
 }

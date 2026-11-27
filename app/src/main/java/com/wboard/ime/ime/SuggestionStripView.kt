@@ -14,11 +14,9 @@ import com.wboard.ime.ui.KeyboardTheme
 import kotlin.math.max
 
 /**
- * Minimalist top strip hosting:
- * - Up to 3 Indonesian prediction chips
- * - Privacy shield indicator on password fields
- * - Voice mic button + inline Indonesian voice waveform & partial transcript overlay
- * - Quick settings gear button
+ * Full-width minimalist prediction strip.
+ * Clipboard, voice mic, and settings are accessed via key long-presses (?123, Space, ',')
+ * to give text predictions maximum horizontal space.
  */
 class SuggestionStripView @JvmOverloads constructor(
     context: Context,
@@ -27,10 +25,8 @@ class SuggestionStripView @JvmOverloads constructor(
 
     interface Listener {
         fun onSuggestionClicked(suggestion: Suggestion)
-        fun onClipboardClicked()
         fun onVoiceClicked()
         fun onVoiceCancelClicked()
-        fun onSettingsClicked()
     }
 
     var listener: Listener? = null
@@ -38,11 +34,8 @@ class SuggestionStripView @JvmOverloads constructor(
     private var theme: KeyboardTheme = KeyboardTheme.LIGHT
     private var suggestions: List<Suggestion> = emptyList()
     private var isPasswordMode: Boolean = false
-    private var showMicButton: Boolean = true
-    private var showClipboardButton: Boolean = true
-    private var clipboardActive: Boolean = false
 
-    // Voice inline state
+    // Voice inline state (active when user holds Spacebar)
     private var voiceActive: Boolean = false
     private var voiceOnDevice: Boolean = false
     private var voicePartialText: String = ""
@@ -51,6 +44,8 @@ class SuggestionStripView @JvmOverloads constructor(
 
     private val density = resources.displayMetrics.density
     private val stripHeightPx = (42f * density).toInt()
+    private val boldTypeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+    private val normalTypeface = Typeface.DEFAULT
 
     private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val dividerPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -67,14 +62,12 @@ class SuggestionStripView @JvmOverloads constructor(
     private val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textAlign = Paint.Align.CENTER
         textSize = 9.5f * density
-        typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        typeface = boldTypeface
     }
     private val wavePaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val chipRects = ArrayList<RectF>(3)
-    private val clipRect = RectF()
     private val micRect = RectF()
-    private val settingsRect = RectF()
     private val cancelRect = RectF()
     private val tempRect = RectF()
 
@@ -88,15 +81,8 @@ class SuggestionStripView @JvmOverloads constructor(
         invalidate()
     }
 
-    fun setPolicyState(passwordMode: Boolean, allowMic: Boolean, allowClipboard: Boolean) {
+    fun setPolicyState(passwordMode: Boolean) {
         isPasswordMode = passwordMode
-        showMicButton = allowMic
-        showClipboardButton = allowClipboard
-        invalidate()
-    }
-
-    fun setClipboardActive(active: Boolean) {
-        clipboardActive = active
         invalidate()
     }
 
@@ -141,33 +127,6 @@ class SuggestionStripView @JvmOverloads constructor(
             return
         }
 
-        val actionBtnW = 40f * density
-        val pad = 6f * density
-        var rightEdge = w - pad
-
-        // Settings button on far right
-        settingsRect.set(rightEdge - actionBtnW, pad, rightEdge, h - pad)
-        rightEdge -= actionBtnW + 4f * density
-
-        // Mic button next to settings
-        if (showMicButton && !isPasswordMode) {
-            micRect.set(rightEdge - actionBtnW, pad, rightEdge, h - pad)
-            rightEdge -= actionBtnW + 4f * density
-        } else {
-            micRect.setEmpty()
-        }
-
-        // Clipboard button next to mic
-        if (showClipboardButton && !isPasswordMode) {
-            clipRect.set(rightEdge - actionBtnW, pad, rightEdge, h - pad)
-            rightEdge -= actionBtnW + 6f * density
-        } else {
-            clipRect.setEmpty()
-            if (!micRect.isEmpty) rightEdge -= 2f * density
-        }
-
-        drawIconButtons(canvas)
-
         if (isPasswordMode) {
             subTextPaint.color = theme.textSecondary
             subTextPaint.textAlign = Paint.Align.LEFT
@@ -178,13 +137,23 @@ class SuggestionStripView @JvmOverloads constructor(
             return
         }
 
-        // Prediction chips area
+        if (voiceStatusText.isNotEmpty()) {
+            chipRects.clear()
+            subTextPaint.color = theme.textSecondary
+            subTextPaint.textAlign = Paint.Align.LEFT
+            val y = h / 2f - (subTextPaint.descent() + subTextPaint.ascent()) / 2f
+            canvas.drawText(ellipsize(voiceStatusText, w - 24f * density, subTextPaint), 12f * density, y, subTextPaint)
+            return
+        }
+
+        // Full-width prediction chips area
         chipRects.clear()
         val areaLeft = 6f * density
-        val areaWidth = (rightEdge - areaLeft).coerceAtLeast(0f)
+        val areaRight = w - 6f * density
+        val areaWidth = (areaRight - areaLeft).coerceAtLeast(0f)
         if (suggestions.isNotEmpty() && areaWidth > 20f) {
             val count = suggestions.size.coerceAtMost(3)
-            val gap = 4f * density
+            val gap = 5f * density
             val chipW = (areaWidth - gap * (count - 1)) / count
             for (i in 0 until count) {
                 val left = areaLeft + i * (chipW + gap)
@@ -198,66 +167,16 @@ class SuggestionStripView @JvmOverloads constructor(
                 }
 
                 textPaint.color = if (item.isCorrection) theme.accentBg else theme.textPrimary
-                textPaint.typeface = if (item.isCorrection) {
-                    Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-                } else {
-                    Typeface.DEFAULT
-                }
+                textPaint.typeface = if (item.isCorrection) boldTypeface else normalTypeface
                 val textY = rect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
                 val clipped = ellipsize(item.text, rect.width() - 12f * density, textPaint)
                 canvas.drawText(clipped, rect.centerX(), textY, textPaint)
             }
-        } else if (voiceStatusText.isNotEmpty()) {
-            subTextPaint.color = theme.textSecondary
-            subTextPaint.textAlign = Paint.Align.LEFT
-            val y = h / 2f - (subTextPaint.descent() + subTextPaint.ascent()) / 2f
-            canvas.drawText(voiceStatusText, 12f * density, y, subTextPaint)
         }
-    }
-
-    private fun drawIconButtons(canvas: Canvas) {
-        val r = 8f * density
-        if (!clipRect.isEmpty) {
-            buttonPaint.color = if (clipboardActive) theme.chipHighlightBg else theme.keyBg
-            canvas.drawRoundRect(clipRect, r, r, buttonPaint)
-            drawClipboardGlyph(
-                canvas,
-                clipRect.centerX(),
-                clipRect.centerY(),
-                if (clipboardActive) theme.accentBg else theme.textSecondary
-            )
-        }
-        // Mic icon (drawn cleanly with geometric shapes)
-        if (!micRect.isEmpty) {
-            buttonPaint.color = theme.keyBg
-            canvas.drawRoundRect(micRect, r, r, buttonPaint)
-            drawMicGlyph(canvas, micRect.centerX(), micRect.centerY(), theme.accentBg)
-        }
-        // Settings gear / sliders glyph
-        buttonPaint.color = theme.specialKeyBg
-        canvas.drawRoundRect(settingsRect, r, r, buttonPaint)
-        drawSlidersGlyph(canvas, settingsRect.centerX(), settingsRect.centerY(), theme.textSecondary)
-    }
-
-    private fun drawClipboardGlyph(canvas: Canvas, cx: Float, cy: Float, color: Int) {
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            style = Paint.Style.STROKE
-            strokeWidth = 1.6f * density
-        }
-        val bw = 5.4f * density
-        val bh = 6.8f * density
-        tempRect.set(cx - bw, cy - bh + 1.5f * density, cx + bw, cy + bh + 1f * density)
-        canvas.drawRoundRect(tempRect, 2f * density, 2f * density, p)
-
-        val clipW = 2.8f * density
-        tempRect.set(cx - clipW, cy - bh - 0.5f * density, cx + clipW, cy - bh + 2.5f * density)
-        canvas.drawRoundRect(tempRect, 1.2f * density, 1.2f * density, p)
     }
 
     private fun drawVoiceBar(canvas: Canvas, w: Float, h: Float) {
         chipRects.clear()
-        settingsRect.setEmpty()
 
         val pad = 6f * density
         val btnW = 40f * density
@@ -268,7 +187,7 @@ class SuggestionStripView @JvmOverloads constructor(
         buttonPaint.color = theme.specialKeyBg
         canvas.drawRoundRect(cancelRect, 8f * density, 8f * density, buttonPaint)
         textPaint.color = theme.textPrimary
-        textPaint.typeface = Typeface.DEFAULT
+        textPaint.typeface = normalTypeface
         val cy = cancelRect.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
         canvas.drawText("✕", cancelRect.centerX(), cy, textPaint)
 
@@ -276,10 +195,9 @@ class SuggestionStripView @JvmOverloads constructor(
         buttonPaint.color = theme.voiceActiveBg
         canvas.drawRoundRect(micRect, 8f * density, 8f * density, buttonPaint)
         textPaint.color = theme.accentText
-        textPaint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        textPaint.typeface = boldTypeface
         canvas.drawText("✓", micRect.centerX(), cy, textPaint)
 
-        // Badge ("OFFLINE" or "ID")
         val badgeText = if (voiceOnDevice) {
             context.getString(R.string.ime_voice_offline_badge)
         } else {
@@ -309,7 +227,6 @@ class SuggestionStripView @JvmOverloads constructor(
             canvas.drawRoundRect(bx, top, bx + barW, top + bh, barW / 2f, barW / 2f, wavePaint)
         }
 
-        // Partial speech text or prompt
         val textLeft = waveLeft + bars * (barW + barGap) + 8f * density
         val maxTextW = (micRect.left - textLeft - 8f * density).coerceAtLeast(10f)
         val display = if (voicePartialText.isNotEmpty()) {
@@ -321,45 +238,6 @@ class SuggestionStripView @JvmOverloads constructor(
         subTextPaint.textAlign = Paint.Align.LEFT
         val ty = h / 2f - (subTextPaint.descent() + subTextPaint.ascent()) / 2f
         canvas.drawText(ellipsize(display, maxTextW, subTextPaint), textLeft, ty, subTextPaint)
-    }
-
-    private fun drawMicGlyph(canvas: Canvas, cx: Float, cy: Float, color: Int) {
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            style = Paint.Style.STROKE
-            strokeWidth = 1.8f * density
-            strokeCap = Paint.Cap.ROUND
-        }
-        val fillP = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            style = Paint.Style.FILL
-        }
-        val capW = 3.2f * density
-        val capH = 5.5f * density
-        tempRect.set(cx - capW, cy - capH - 1f * density, cx + capW, cy + 1.5f * density)
-        canvas.drawRoundRect(tempRect, capW, capW, fillP)
-
-        val arcR = 5.6f * density
-        tempRect.set(cx - arcR, cy - 3.5f * density, cx + arcR, cy + 4.5f * density)
-        canvas.drawArc(tempRect, 0f, 180f, false, p)
-        canvas.drawLine(cx, cy + 4.5f * density, cx, cy + 7.5f * density, p)
-        canvas.drawLine(cx - 3.2f * density, cy + 7.5f * density, cx + 3.2f * density, cy + 7.5f * density, p)
-    }
-
-    private fun drawSlidersGlyph(canvas: Canvas, cx: Float, cy: Float, color: Int) {
-        val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            this.color = color
-            strokeWidth = 1.7f * density
-            strokeCap = Paint.Cap.ROUND
-        }
-        val halfW = 6.5f * density
-        val dy = 4.2f * density
-        canvas.drawLine(cx - halfW, cy - dy, cx + halfW, cy - dy, p)
-        canvas.drawLine(cx - halfW, cy, cx + halfW, cy, p)
-        canvas.drawLine(cx - halfW, cy + dy, cx + halfW, cy + dy, p)
-        canvas.drawCircle(cx - 2.2f * density, cy - dy, 1.8f * density, p)
-        canvas.drawCircle(cx + 2.5f * density, cy, 1.8f * density, p)
-        canvas.drawCircle(cx - 1.5f * density, cy + dy, 1.8f * density, p)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -377,18 +255,6 @@ class SuggestionStripView @JvmOverloads constructor(
             return true
         }
 
-        if (settingsRect.contains(x, y)) {
-            listener?.onSettingsClicked()
-            return true
-        }
-        if (!micRect.isEmpty && micRect.contains(x, y)) {
-            listener?.onVoiceClicked()
-            return true
-        }
-        if (!clipRect.isEmpty && clipRect.contains(x, y)) {
-            listener?.onClipboardClicked()
-            return true
-        }
         for (i in chipRects.indices) {
             if (chipRects[i].contains(x, y) && i < suggestions.size) {
                 listener?.onSuggestionClicked(suggestions[i])

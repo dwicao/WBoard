@@ -8,7 +8,6 @@ object KeyCode {
     const val MODE_SYMBOLS = -5
     const val MODE_ALPHA = -6
     const val MODE_MORE_SYMBOLS = -7
-    const val VOICE = -8
 }
 
 enum class KeyboardMode {
@@ -24,6 +23,13 @@ enum class ShiftState {
     CAPS_LOCK
 }
 
+enum class HoldAction {
+    NONE,
+    CLIPBOARD,
+    VOICE,
+    SETTINGS
+}
+
 data class KeySpec(
     val code: Int,
     val label: String,
@@ -31,7 +37,8 @@ data class KeySpec(
     val isSpecial: Boolean = false,
     val isAccent: Boolean = false,
     val hint: String? = null,
-    val longPressOptions: List<String> = emptyList()
+    val longPressOptions: List<String> = emptyList(),
+    val holdAction: HoldAction = HoldAction.NONE
 )
 
 object KeyboardLayouts {
@@ -41,19 +48,34 @@ object KeyboardLayouts {
         key('6'), key('7'), key('8'), key('9'), key('0')
     )
 
-    private val ALPHA_ROWS = listOf(
-        listOf(
-            key('q', "1", listOf("1")),
-            key('w', "2", listOf("2")),
-            key('e', "3", listOf("3", "é", "è")),
-            key('r', "4", listOf("4")),
-            key('t', "5", listOf("5")),
-            key('y', "6", listOf("6")),
-            key('u', "7", listOf("7", "ü")),
-            key('i', "8", listOf("8")),
-            key('o', "9", listOf("9")),
-            key('p', "0", listOf("0"))
-        ),
+    private val ALPHA_TOP_NUMBERS = listOf(
+        key('q', "1", listOf("1")),
+        key('w', "2", listOf("2")),
+        key('e', "3", listOf("3", "é", "è")),
+        key('r', "4", listOf("4")),
+        key('t', "5", listOf("5")),
+        key('y', "6", listOf("6")),
+        key('u', "7", listOf("7", "ü")),
+        key('i', "8", listOf("8")),
+        key('o', "9", listOf("9")),
+        key('p', "0", listOf("0"))
+    )
+
+    // When the dedicated number row is always shown, long-pressing qwertyuiop inputs symbols.
+    private val ALPHA_TOP_SYMBOLS = listOf(
+        key('q', "%", listOf("%")),
+        key('w', "^", listOf("^")),
+        key('e', "~", listOf("~", "é", "è")),
+        key('r', "=", listOf("=")),
+        key('t', "[", listOf("[")),
+        key('y', "]", listOf("]")),
+        key('u', "<", listOf("<", "ü")),
+        key('i', ">", listOf(">")),
+        key('o', "{", listOf("{")),
+        key('p', "}", listOf("}"))
+    )
+
+    private val ALPHA_LOWER_ROWS = listOf(
         listOf(
             key('a', "@", listOf("@", "á")),
             key('s', "#", listOf("#")),
@@ -77,13 +99,31 @@ object KeyboardLayouts {
             KeySpec(KeyCode.BACKSPACE, "⌫", weight = 1.45f, isSpecial = true)
         ),
         listOf(
-            KeySpec(KeyCode.MODE_SYMBOLS, "?123", weight = 1.4f, isSpecial = true),
-            key(',', longPress = listOf("!", "?")),
-            KeySpec(KeyCode.SPACE, "Bahasa Indonesia", weight = 4.6f),
+            KeySpec(
+                code = KeyCode.MODE_SYMBOLS,
+                label = "?123",
+                weight = 1.4f,
+                isSpecial = true,
+                holdAction = HoldAction.CLIPBOARD
+            ),
+            KeySpec(
+                code = ','.code,
+                label = ",",
+                holdAction = HoldAction.SETTINGS
+            ),
+            KeySpec(
+                code = KeyCode.SPACE,
+                label = "Bahasa Indonesia",
+                weight = 4.6f,
+                holdAction = HoldAction.VOICE
+            ),
             key('.', hint = "…", longPress = listOf(",", "?", "!", ":", ";", "-")),
             KeySpec(KeyCode.ENTER, "↵", weight = 1.5f, isAccent = true)
         )
     )
+
+    private val ALPHA_ROWS_DEFAULT = listOf(ALPHA_TOP_NUMBERS) + ALPHA_LOWER_ROWS
+    private val ALPHA_ROWS_WITH_NUMBER_ROW = listOf(NUMBER_ROW, ALPHA_TOP_SYMBOLS) + ALPHA_LOWER_ROWS
 
     private val SYMBOL_ROWS = listOf(
         NUMBER_ROW,
@@ -98,9 +138,9 @@ object KeyboardLayouts {
             KeySpec(KeyCode.BACKSPACE, "⌫", weight = 1.45f, isSpecial = true)
         ),
         listOf(
-            KeySpec(KeyCode.MODE_ALPHA, "ABC", weight = 1.4f, isSpecial = true),
-            key(','),
-            KeySpec(KeyCode.SPACE, "Spasi", weight = 4.6f),
+            KeySpec(KeyCode.MODE_ALPHA, "ABC", weight = 1.4f, isSpecial = true, holdAction = HoldAction.CLIPBOARD),
+            KeySpec(code = ','.code, label = ",", holdAction = HoldAction.SETTINGS),
+            KeySpec(code = KeyCode.SPACE, label = "Spasi", weight = 4.6f, holdAction = HoldAction.VOICE),
             key('.'),
             KeySpec(KeyCode.ENTER, "↵", weight = 1.5f, isAccent = true)
         )
@@ -123,9 +163,9 @@ object KeyboardLayouts {
             KeySpec(KeyCode.BACKSPACE, "⌫", weight = 1.45f, isSpecial = true)
         ),
         listOf(
-            KeySpec(KeyCode.MODE_ALPHA, "ABC", weight = 1.4f, isSpecial = true),
-            key(','),
-            KeySpec(KeyCode.SPACE, "Spasi", weight = 4.6f),
+            KeySpec(KeyCode.MODE_ALPHA, "ABC", weight = 1.4f, isSpecial = true, holdAction = HoldAction.CLIPBOARD),
+            KeySpec(code = ','.code, label = ",", holdAction = HoldAction.SETTINGS),
+            KeySpec(code = KeyCode.SPACE, label = "Spasi", weight = 4.6f, holdAction = HoldAction.VOICE),
             key('.'),
             KeySpec(KeyCode.ENTER, "↵", weight = 1.5f, isAccent = true)
         )
@@ -141,15 +181,15 @@ object KeyboardLayouts {
             key('='), key('{'), key('}'), key('\\'), key('%')
         ),
         listOf(
-            KeySpec(KeyCode.MODE_SYMBOLS, "?123", weight = 1.45f, isSpecial = true),
+            KeySpec(KeyCode.MODE_SYMBOLS, "?123", weight = 1.45f, isSpecial = true, holdAction = HoldAction.CLIPBOARD),
             key('['), key(']'), key('<'), key('>'),
             key('©'), key('®'), key('™'),
             KeySpec(KeyCode.BACKSPACE, "⌫", weight = 1.45f, isSpecial = true)
         ),
         listOf(
-            KeySpec(KeyCode.MODE_ALPHA, "ABC", weight = 1.4f, isSpecial = true),
+            KeySpec(KeyCode.MODE_ALPHA, "ABC", weight = 1.4f, isSpecial = true, holdAction = HoldAction.CLIPBOARD),
             key('<'),
-            KeySpec(KeyCode.SPACE, "Spasi", weight = 4.6f),
+            KeySpec(code = KeyCode.SPACE, label = "Spasi", weight = 4.6f, holdAction = HoldAction.VOICE),
             key('>'),
             KeySpec(KeyCode.ENTER, "↵", weight = 1.5f, isAccent = true)
         )
@@ -166,7 +206,7 @@ object KeyboardLayouts {
 
     fun rowsFor(mode: KeyboardMode, showNumberRow: Boolean): List<List<KeySpec>> {
         return when (mode) {
-            KeyboardMode.ALPHA -> if (showNumberRow) listOf(NUMBER_ROW) + ALPHA_ROWS else ALPHA_ROWS
+            KeyboardMode.ALPHA -> if (showNumberRow) ALPHA_ROWS_WITH_NUMBER_ROW else ALPHA_ROWS_DEFAULT
             KeyboardMode.SYMBOLS -> if (showNumberRow) SYMBOL_ROWS_5 else SYMBOL_ROWS
             KeyboardMode.MORE_SYMBOLS -> if (showNumberRow) MORE_SYMBOL_ROWS_5 else MORE_SYMBOL_ROWS
             KeyboardMode.NUMERIC -> NUMERIC_ROWS
