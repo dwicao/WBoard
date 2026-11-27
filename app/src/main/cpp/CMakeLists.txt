@@ -26,7 +26,6 @@ set(GGML_CPU_KLEIDIAI OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     whisper_src
     URL https://github.com/ggml-org/whisper.cpp/archive/refs/tags/v1.9.6.tar.gz
-    DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(whisper_src)
 
