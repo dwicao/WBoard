@@ -280,7 +280,7 @@ class WBoardImeService : InputMethodService(),
         }
         commitComposingRaw()
         val before = currentInputConnection?.getTextBeforeCursor(16, 0)?.toString().orEmpty()
-        val capFirst = before.isBlank() || before.trimEnd().lastOrNull() in charArrayOf('.', '?', '!')
+        val capFirst = before.isBlank() || isSentenceBoundaryChar(before.trimEnd().lastOrNull())
         val started = voiceController.startListening(
             strictOffline = prefs.voiceStrictOffline,
             applyPunctuation = prefs.voicePunctuationEnabled,
@@ -541,7 +541,7 @@ class WBoardImeService : InputMethodService(),
     private fun extractPreviousWordFromCursor() {
         val before = currentInputConnection?.getTextBeforeCursor(40, 0)?.toString().orEmpty()
         val trimmed = before.trimEnd()
-        if (trimmed.isEmpty() || before.lastOrNull() in charArrayOf('.', '?', '!', '\n')) {
+        if (trimmed.isEmpty() || isSentenceBoundaryChar(before.lastOrNull(), includeNewline = true)) {
             previousWord = null
             return
         }
@@ -560,9 +560,17 @@ class WBoardImeService : InputMethodService(),
             currentInputEditorInfo?.inputType ?: InputType.TYPE_CLASS_TEXT
         ) ?: 0
         val before = ic?.getTextBeforeCursor(24, 0)?.toString().orEmpty()
-        val atSentenceBoundary = before.isEmpty() || before.trimEnd().lastOrNull() in charArrayOf('.', '?', '!', '\n')
+        val atSentenceBoundary = before.isEmpty() ||
+            isSentenceBoundaryChar(before.trimEnd().lastOrNull(), includeNewline = true)
         shiftState = if (capsMode != 0 || atSentenceBoundary) ShiftState.ONCE else ShiftState.OFF
     }
+
+    private fun isSentenceBoundaryChar(ch: Char?, includeNewline: Boolean = false): Boolean =
+        when (ch) {
+            '.', '?', '!' -> true
+            '\n' -> includeNewline
+            else -> false
+        }
 
     private fun maybeLearnWord(word: String) {
         if (!prefs.learnWordsLocally || !fieldPolicy.allowLearning) return
