@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="wb_bg">#F5F7FA</color>
+    <color name="wb_surface">#FFFFFF</color>
+    <color name="wb_surface_variant">#E9EEF5</color>
+    <color name="wb_text_primary">#111827</color>
+    <color name="wb_text_secondary">#5B6472</color>
+    <color name="wb_accent">#0F766E</color>
+    <color name="wb_accent_soft">#CCFBF1</color>
+    <color name="wb_border">#DDE3EC</color>
+    <color name="wb_ok">#15803D</color>
+    <color name="wb_warn">#B45309</color>
+    <color name="wb_danger">#B91C1C</color>
+</resources>

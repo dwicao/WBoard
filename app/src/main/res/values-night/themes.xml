@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.WBoard" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">@color/wb_accent</item>
+        <item name="android:colorAccent">@color/wb_accent</item>
+        <item name="android:windowBackground">@color/wb_bg</item>
+        <item name="android:statusBarColor">@color/wb_bg</item>
+        <item name="android:navigationBarColor">@color/wb_bg</item>
+    </style>
+</resources>

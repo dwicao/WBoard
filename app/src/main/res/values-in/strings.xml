@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WBoard</string>
+    <string name="app_tagline">Keyboard minimalis &amp; privat dengan suara Indonesia &amp; prediksi teks</string>
+    <string name="settings_title">Pengaturan WBoard</string>
+
+    <string name="setup_section_title">Pengaturan Cepat</string>
+    <string name="step_enable_ime">1. Aktifkan WBoard</string>
+    <string name="step_enable_ime_desc">Aktifkan WBoard di Pengaturan Keyboard Android</string>
+    <string name="step_select_ime">2. Pilih WBoard</string>
+    <string name="step_select_ime_desc">Ganti metode input aktif ke WBoard</string>
+    <string name="step_mic_perm">3. Izin Mikrofon</string>
+    <string name="step_mic_perm_desc">Hanya dipakai saat Anda menekan ikon mikrofon untuk suara Indonesia</string>
+    <string name="btn_open_ime_settings">Buka Pengaturan</string>
+    <string name="btn_choose_keyboard">Pilih Keyboard</string>
+    <string name="btn_grant_mic">Izinkan Mikrofon</string>
+    <string name="status_enabled">Aktif</string>
+    <string name="status_disabled">Belum aktif</string>
+    <string name="status_active">Dipilih</string>
+    <string name="status_inactive">Belum dipilih</string>
+    <string name="status_granted">Diizinkan</string>
+    <string name="status_not_granted">Belum diizinkan</string>
+
+    <string name="voice_section_title">Mesin Suara Indonesia (id-ID)</string>
+    <string name="voice_on_device_ready">Pengenalan suara Indonesia offline di perangkat tersedia.</string>
+    <string name="voice_system_only">Layanan suara sistem ditemukan. Gunakan mode Offline Ketat atau unduh paket id-ID offline di pengaturan suara.</string>
+    <string name="voice_unavailable">Pengenal suara tidak ditemukan di perangkat ini.</string>
+    <string name="btn_voice_settings">Pengaturan Suara</string>
+
+    <string name="privacy_section_title">Audit Privasi &amp; Keamanan</string>
+    <string name="privacy_no_internet">• Tanpa izin INTERNET di manifest aplikasi</string>
+    <string name="privacy_no_backup">• Pencadangan cloud &amp; transfer perangkat dinonaktifkan</string>
+    <string name="privacy_password_shield">• Kolom kata sandi &amp; samaran otomatis mematikan prediksi, belajar kata &amp; mikrofon</string>
+    <string name="privacy_local_only">• Prediksi &amp; kata tersimpan tetap 100% di perangkat</string>
+
+    <string name="playground_title">Uji Coba Keyboard &amp; Suara</string>
+    <string name="playground_hint">Ketik di sini atau ketuk ikon mikrofon di keyboard…</string>
+    <string name="btn_open_settings">Preferensi Keyboard</string>
+
+    <string name="cat_appearance">Tampilan &amp; Tata Letak</string>
+    <string name="pref_theme">Tema</string>
+    <string name="pref_height">Tinggi Keyboard</string>
+    <string name="pref_number_row">Tampilkan Baris Angka</string>
+    <string name="pref_key_popup">Popup Tombol</string>
+    <string name="pref_haptics">Getar Tombol</string>
+
+    <string name="cat_typing">Prediksi &amp; Pengetikan Indonesia</string>
+    <string name="pref_predictions">Prediksi Teks Indonesia</string>
+    <string name="pref_autocorrect">Koreksi Otomatis saat Spasi</string>
+    <string name="pref_shorthand">Perluas Singkatan Indonesia (yg → yang)</string>
+    <string name="pref_auto_caps">Kapitalisasi Awal Kalimat</string>
+    <string name="pref_double_space_period">Spasi Ganda untuk Titik</string>
+    <string name="pref_learn_words">Pelajari Kata Secara Lokal</string>
+    <string name="pref_learn_words_desc">Disimpan privat di perangkat; tidak pernah dipelajari di kolom sandi</string>
+    <string name="btn_clear_learned">Hapus Kata Tersimpan</string>
+    <string name="toast_learned_cleared">%d kata tersimpan dihapus</string>
+
+    <string name="cat_voice">Input Suara Indonesia</string>
+    <string name="pref_voice_enabled">Tampilkan Tombol Mikrofon</string>
+    <string name="pref_voice_strict_offline">Mode Offline Ketat (Privasi)</string>
+    <string name="pref_voice_strict_offline_desc">Utamakan pengenalan suara di perangkat tanpa jaringan</string>
+    <string name="pref_voice_punctuation">Perintah Tanda Baca Suara</string>
+    <string name="pref_voice_punctuation_desc">Ubah ucapan “titik”, “koma”, “tanda tanya”, “baris baru”</string>
+
+    <string name="ime_voice_listening">Mendengarkan (ID)…</string>
+    <string name="ime_voice_offline_badge">OFFLINE</string>
+    <string name="ime_voice_no_permission">Berikan izin mikrofon di aplikasi WBoard</string>
+    <string name="ime_voice_unavailable">Suara ID offline tidak tersedia di perangkat</string>
+    <string name="ime_voice_error">Input suara berhenti (%s)</string>
+    <string name="ime_password_shield">Mode privat — prediksi &amp; belajar kata mati</string>
+</resources>

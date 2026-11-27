@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WBoard</string>
+    <string name="app_tagline">Minimalist, private keyboard with Indonesian voice &amp; prediction</string>
+    <string name="settings_title">WBoard Settings</string>
+    <string name="subtype_indonesian">Bahasa Indonesia</string>
+    <string name="subtype_english">English (US)</string>
+
+    <!-- Setup & Status -->
+    <string name="setup_section_title">Quick Setup</string>
+    <string name="step_enable_ime">1. Enable WBoard</string>
+    <string name="step_enable_ime_desc">Enable WBoard in Android Keyboard Settings</string>
+    <string name="step_select_ime">2. Select WBoard</string>
+    <string name="step_select_ime_desc">Switch active input method to WBoard</string>
+    <string name="step_mic_perm">3. Microphone Permission</string>
+    <string name="step_mic_perm_desc">Required only when you tap the mic for Indonesian voice input</string>
+    <string name="btn_open_ime_settings">Open Settings</string>
+    <string name="btn_choose_keyboard">Choose Keyboard</string>
+    <string name="btn_grant_mic">Grant Mic</string>
+    <string name="status_enabled">Enabled</string>
+    <string name="status_disabled">Not enabled</string>
+    <string name="status_active">Active</string>
+    <string name="status_inactive">Not selected</string>
+    <string name="status_granted">Granted</string>
+    <string name="status_not_granted">Not granted</string>
+
+    <!-- Voice Status -->
+    <string name="voice_section_title">Indonesian Voice Engine (id-ID)</string>
+    <string name="voice_on_device_ready">On-device offline Indonesian speech recognition is available.</string>
+    <string name="voice_system_only">System speech service found. Enable Strict Offline mode or install offline id-ID pack in system speech settings.</string>
+    <string name="voice_unavailable">No speech recognizer found on this device.</string>
+    <string name="btn_voice_settings">Speech Settings</string>
+
+    <!-- Privacy Audit -->
+    <string name="privacy_section_title">Privacy &amp; Security Audit</string>
+    <string name="privacy_no_internet">• Zero INTERNET permission declared in manifest</string>
+    <string name="privacy_no_backup">• Cloud backup &amp; device transfer disabled</string>
+    <string name="privacy_password_shield">• Password &amp; incognito fields auto-disable learning, predictions &amp; mic</string>
+    <string name="privacy_local_only">• Predictions &amp; optional learned words stay 100% on-device</string>
+
+    <!-- Test Playground -->
+    <string name="playground_title">Test Keyboard &amp; Voice</string>
+    <string name="playground_hint">Ketik di sini atau ketuk ikon mikrofon di keyboard…</string>
+    <string name="btn_open_settings">Keyboard Preferences</string>
+
+    <!-- Settings Screen -->
+    <string name="cat_appearance">Appearance &amp; Layout</string>
+    <string name="pref_theme">Theme</string>
+    <string name="pref_height">Keyboard Height</string>
+    <string name="pref_number_row">Show Number Row</string>
+    <string name="pref_key_popup">Key Press Popup</string>
+    <string name="pref_haptics">Haptic Feedback</string>
+
+    <string name="cat_typing">Indonesian Prediction &amp; Typing</string>
+    <string name="pref_predictions">Indonesian Text Prediction</string>
+    <string name="pref_autocorrect">Auto-Correct on Space</string>
+    <string name="pref_shorthand">Expand Indonesian Shorthand (yg → yang)</string>
+    <string name="pref_auto_caps">Auto-Capitalize Sentences</string>
+    <string name="pref_double_space_period">Double-Space for Period</string>
+    <string name="pref_learn_words">Learn Typed Words Locally</string>
+    <string name="pref_learn_words_desc">Stored privately on-device; never learned in password or incognito fields</string>
+    <string name="btn_clear_learned">Clear Learned Words</string>
+    <string name="toast_learned_cleared">Cleared %d learned words</string>
+
+    <string name="cat_voice">Indonesian Voice Input</string>
+    <string name="pref_voice_enabled">Show Voice Mic Button</string>
+    <string name="pref_voice_strict_offline">Strict Offline Mode (Privacy)</string>
+    <string name="pref_voice_strict_offline_desc">Prefer or require on-device recognition without network fallback</string>
+    <string name="pref_voice_punctuation">Voice Punctuation Commands</string>
+    <string name="pref_voice_punctuation_desc">Convert spoken “titik”, “koma”, “tanda tanya”, “baris baru”</string>
+
+    <!-- IME Strings -->
+    <string name="ime_voice_listening">Mendengarkan (ID)…</string>
+    <string name="ime_voice_offline_badge">OFFLINE</string>
+    <string name="ime_voice_no_permission">Grant mic permission in WBoard app</string>
+    <string name="ime_voice_unavailable">Offline ID speech unavailable on device</string>
+    <string name="ime_voice_error">Voice input stopped (%s)</string>
+    <string name="ime_password_shield">Private mode — prediction &amp; learning off</string>
+</resources>

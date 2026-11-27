@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/wb_bg"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:id="@+id/settings_root"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="18dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btn_back"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_button_secondary"
+                android:text="←"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="16sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:text="@string/settings_title"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Appearance -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cat_appearance"
+                android:textColor="@color/wb_accent"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/pref_theme"
+                    android:textColor="@color/wb_text_primary"
+                    android:textSize="15sp" />
+
+                <Spinner
+                    android:id="@+id/spinner_theme"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/pref_height"
+                    android:textColor="@color/wb_text_primary"
+                    android:textSize="15sp" />
+
+                <Spinner
+                    android:id="@+id/spinner_height"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
+
+            <Switch
+                android:id="@+id/switch_number_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_number_row"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_key_popup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_key_popup"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_haptics"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_haptics"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <!-- Indonesian Prediction & Typing -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cat_typing"
+                android:textColor="@color/wb_accent"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <Switch
+                android:id="@+id/switch_predictions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/pref_predictions"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_autocorrect"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_autocorrect"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_shorthand"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_shorthand"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_auto_caps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_auto_caps"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_double_space"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_double_space_period"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_learn_words"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_learn_words"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/pref_learn_words_desc"
+                android:textColor="@color/wb_text_secondary"
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_clear_learned"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/bg_button_secondary"
+                android:paddingHorizontal="12dp"
+                android:text="@string/btn_clear_learned"
+                android:textAllCaps="false"
+                android:textColor="@color/wb_danger"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Indonesian Voice Input -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="16dp"
+            android:background="@drawable/bg_card"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/cat_voice"
+                android:textColor="@color/wb_accent"
+                android:textSize="13sp"
+                android:textStyle="bold" />
+
+            <Switch
+                android:id="@+id/switch_voice_enabled"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="@string/pref_voice_enabled"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <Switch
+                android:id="@+id/switch_voice_offline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_voice_strict_offline"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/pref_voice_strict_offline_desc"
+                android:textColor="@color/wb_text_secondary"
+                android:textSize="12sp" />
+
+            <Switch
+                android:id="@+id/switch_voice_punct"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="@string/pref_voice_punctuation"
+                android:textColor="@color/wb_text_primary"
+                android:textSize="15sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="@string/pref_voice_punctuation_desc"
+                android:textColor="@color/wb_text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>
