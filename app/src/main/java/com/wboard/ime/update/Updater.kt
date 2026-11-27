@@ -42,8 +42,8 @@ object Updater {
         fun isNewerThan(currentCode: Long): Boolean = versionCode > currentCode
     }
 
-    private val executor = Executors.newSingleThreadExecutor()
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val executor by lazy { Executors.newSingleThreadExecutor() }
+    private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
 
     fun parseManifest(rawJson: String): Info {
         val json = JSONObject(rawJson)
