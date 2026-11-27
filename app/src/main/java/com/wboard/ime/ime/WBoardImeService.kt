@@ -10,6 +10,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.util.Log
 import android.view.KeyEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -34,7 +35,6 @@ import com.wboard.ime.voice.VoiceResultBridge
 import com.wboard.ime.voice.WhisperModelManager
 import com.wboard.ime.voice.WhisperVoiceController
 import java.util.concurrent.Executors
-import java.util.zip.GZIPInputStream
 
 class WBoardImeService : InputMethodService(),
     WBoardKeyboardView.Listener,
@@ -92,15 +92,21 @@ class WBoardImeService : InputMethodService(),
 
         bgExecutor.execute {
             runCatching {
-                GZIPInputStream(assets.open("dict/id_unigrams.tsv.gz")).use { unigrams ->
+                assets.open("dict/id_unigrams.tsv").use { unigrams ->
                     assets.open("dict/id_bigrams.tsv").use { bigrams ->
                         assets.open("dict/id_shorthands.tsv").use { shorthands ->
                             predictionEngine.loadFromStreams(unigrams, bigrams, shorthands)
                         }
                     }
                 }
-                if (prefs.learnWordsLocally) {
+            }.onFailure { err ->
+                Log.e(TAG, "Failed to load dictionary assets", err)
+            }
+            if (prefs.learnWordsLocally) {
+                runCatching {
                     predictionEngine.setUserWords(userLexiconStore.load())
+                }.onFailure { err ->
+                    Log.e(TAG, "Failed to load local user lexicon", err)
                 }
             }
             mainHandler.post { refreshSuggestions() }
@@ -814,6 +820,7 @@ class WBoardImeService : InputMethodService(),
     }
 
     companion object {
+        private const val TAG = "WBoardImeService"
         private const val DOUBLE_TAP_WINDOW_MS = 380L
         private val HANDLED_IME_ACTIONS = setOf(
             EditorInfo.IME_ACTION_GO,

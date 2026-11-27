@@ -1,13 +1,12 @@
 {
-  "version": "1.0.6",
-  "versionCode": 7,
-  "apkUrl": "https://github.com/dwicao/WBoard/releases/download/v1.0.6/WBoard-v1.0.6-release.apk",
+  "version": "1.0.7",
+  "versionCode": 8,
+  "apkUrl": "https://github.com/dwicao/WBoard/releases/download/v1.0.7/WBoard-v1.0.7-release.apk",
   "sizeBytes": 0,
   "sha256": "",
   "releasedAt": "2026-11-28",
   "notes": [
-    "Kamus Indonesia diperluas ke 58.597 kata (FrequencyWords 50k + 29k kata dasar KBBI/Sastrawi + kosakata gaul/chat/e-commerce)",
-    "143 singkatan & 351 bigram formal/informal Indonesia",
-    "Best-First Top-K Trie super cepat + prediksi imbuhan dinamis (-nya, -ku, -mu, -lah, -kah, -pun, -kan)"
+    "Fix text prediction not appearing in v1.0.6 (AAPT2 stripped .gz suffix from id_unigrams.tsv.gz so AssetManager couldn't open it)",
+    "Kamus 58.597 kata Indonesia (formal KBBI, informal, gaul, chat), 143 singkatan & 351 bigram kini langsung termuat penuh"
   ]
 }

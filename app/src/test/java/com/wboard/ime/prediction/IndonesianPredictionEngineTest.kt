@@ -7,7 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import java.io.File
-import java.util.zip.GZIPInputStream
 
 class IndonesianPredictionEngineTest {
 
@@ -125,7 +124,7 @@ class IndonesianPredictionEngineTest {
         assertNotNull(dictDir)
 
         val fullEngine = IndonesianPredictionEngine()
-        GZIPInputStream(File(dictDir, "id_unigrams.tsv.gz").inputStream()).use { u ->
+        File(dictDir, "id_unigrams.tsv").inputStream().use { u ->
             File(dictDir, "id_bigrams.tsv").inputStream().use { b ->
                 File(dictDir, "id_shorthands.tsv").inputStream().use { s ->
                     fullEngine.loadFromStreams(u, b, s)
