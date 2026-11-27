@@ -58,24 +58,27 @@ jobs:
           cp "$APK" "$OUT"
           ( cd out && sha256sum "WBoard-${TAG}-release.apk" > "WBoard-${TAG}-release.apk.sha256" )
 
-          VERSION_CODE=$(grep -m1 'versionCode' app/build.gradle.kts | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/')
-          SHA256=$(cut -d' ' -f1 "out/WBoard-${TAG}-release.apk.sha256")
-          SIZE_BYTES=$(stat -c%s "$OUT")
-          RELEASED_AT=$(date -u +%Y-%m-%d)
-          python3 - <<PY
-import json
-with open("version.json", "r", encoding="utf-8") as f:
-    data = json.load(f)
-data["version"] = "${VERSION}"
-data["versionCode"] = int("${VERSION_CODE}")
-data["apkUrl"] = f"https://github.com/dwicao/WBoard/releases/download/${TAG}/WBoard-${TAG}-release.apk"
-data["sizeBytes"] = int("${SIZE_BYTES}")
-data["sha256"] = "${SHA256}"
-data["releasedAt"] = "${RELEASED_AT}"
-with open("out/version.json", "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=2, ensure_ascii=False)
-    f.write("\n")
-PY
+          export REL_VERSION="$VERSION"
+          export REL_VERSION_CODE=$(grep -m1 'versionCode' app/build.gradle.kts | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/')
+          export REL_SHA256=$(cut -d' ' -f1 "out/WBoard-${TAG}-release.apk.sha256")
+          export REL_SIZE_BYTES=$(stat -c%s "$OUT")
+          export REL_DATE=$(date -u +%Y-%m-%d)
+          export REL_TAG="$TAG"
+          python3 -c '
+          import json, os
+          with open("version.json", "r", encoding="utf-8") as f:
+              data = json.load(f)
+          tag = os.environ["REL_TAG"]
+          data["version"] = os.environ["REL_VERSION"]
+          data["versionCode"] = int(os.environ["REL_VERSION_CODE"])
+          data["apkUrl"] = f"https://github.com/dwicao/WBoard/releases/download/{tag}/WBoard-{tag}-release.apk"
+          data["sizeBytes"] = int(os.environ["REL_SIZE_BYTES"])
+          data["sha256"] = os.environ["REL_SHA256"]
+          data["releasedAt"] = os.environ["REL_DATE"]
+          with open("out/version.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, indent=2, ensure_ascii=False)
+              f.write("\n")
+          '
           ls -lh out/
           echo "apk=$OUT" >> "$GITHUB_OUTPUT"
           echo "sha=out/WBoard-${TAG}-release.apk.sha256" >> "$GITHUB_OUTPUT"
