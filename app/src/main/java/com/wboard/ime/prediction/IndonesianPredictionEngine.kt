@@ -3,16 +3,18 @@ package com.wboard.ime.prediction
 import java.io.BufferedReader
 import java.io.InputStream
 import java.io.InputStreamReader
+import java.util.PriorityQueue
 import kotlin.math.abs
 import kotlin.math.min
 
 /**
- * Pure Kotlin, 100% on-device Indonesian text prediction and typo-correction engine.
+ * High-speed, low-memory, 100% on-device Indonesian text prediction engine.
  * Supports:
- * - Trie-based prefix completion weighted by Indonesian word frequency
- * - Next-word bigram prediction
- * - Indonesian shorthand expansion (e.g., yg -> yang, tdk -> tidak)
- * - QWERTY-proximity weighted Damerau-Levenshtein autocorrect
+ * - Compact array-backed Trie with Best-First Top-K prefix retrieval across 58k+ words
+ * - Next-word bigram prediction (formal + informal/gaul)
+ * - Dynamic Indonesian clitic/suffix completion (-nya, -ku, -mu, -lah, -kah, -pun, -kan)
+ * - Indonesian shorthand expansion (e.g., yg -> yang, tdk -> tidak, gmn -> gimana)
+ * - QWERTY-proximity weighted Damerau-Levenshtein autocorrect over high-frequency lexicon
  * - Optional local learned-word boosting
  */
 class IndonesianPredictionEngine {
@@ -31,16 +33,97 @@ class IndonesianPredictionEngine {
     )
 
     private class TrieNode {
-        val children = HashMap<Char, TrieNode>(4)
+        private var childChars: CharArray? = null
+        private var childNodes: Array<TrieNode?>? = null
+        private var childCount: Int = 0
         var word: String? = null
         var freq: Int = 0
+        var maxSubtreeFreq: Int = 0
+
+        fun getChild(ch: Char): TrieNode? {
+            val keys = childChars ?: return null
+            val nodes = childNodes ?: return null
+            var lo = 0
+            var hi = childCount - 1
+            while (lo <= hi) {
+                val mid = (lo + hi) ushr 1
+                val c = keys[mid]
+                when {
+                    c < ch -> lo = mid + 1
+                    c > ch -> hi = mid - 1
+                    else -> return nodes[mid]
+                }
+            }
+            return null
+        }
+
+        fun getOrPutChild(ch: Char): TrieNode {
+            val keys = childChars
+            val nodes = childNodes
+            if (keys == null || nodes == null) {
+                childChars = charArrayOf(ch)
+                val node = TrieNode()
+                childNodes = arrayOf(node)
+                childCount = 1
+                return node
+            }
+
+            var lo = 0
+            var hi = childCount - 1
+            while (lo <= hi) {
+                val mid = (lo + hi) ushr 1
+                val c = keys[mid]
+                when {
+                    c < ch -> lo = mid + 1
+                    c > ch -> hi = mid - 1
+                    else -> return nodes[mid]!!
+                }
+            }
+
+            val insertPos = lo
+            if (childCount == keys.size) {
+                val newCap = if (keys.size < 4) keys.size + 1 else keys.size + (keys.size ushr 1)
+                val newKeys = CharArray(newCap)
+                val newNodes = arrayOfNulls<TrieNode>(newCap)
+                System.arraycopy(keys, 0, newKeys, 0, insertPos)
+                System.arraycopy(nodes, 0, newNodes, 0, insertPos)
+                System.arraycopy(keys, insertPos, newKeys, insertPos + 1, childCount - insertPos)
+                System.arraycopy(nodes, insertPos, newNodes, insertPos + 1, childCount - insertPos)
+                childChars = newKeys
+                childNodes = newNodes
+            } else {
+                System.arraycopy(keys, insertPos, keys, insertPos + 1, childCount - insertPos)
+                System.arraycopy(nodes, insertPos, nodes, insertPos + 1, childCount - insertPos)
+            }
+            val node = TrieNode()
+            childChars!![insertPos] = ch
+            childNodes!![insertPos] = node
+            childCount++
+            return node
+        }
+
+        fun forEachChild(action: (TrieNode) -> Unit) {
+            val nodes = childNodes ?: return
+            for (i in 0 until childCount) {
+                nodes[i]?.let(action)
+            }
+        }
+
+        fun clear() {
+            childChars = null
+            childNodes = null
+            childCount = 0
+            word = null
+            freq = 0
+            maxSubtreeFreq = 0
+        }
     }
 
     private val root = TrieNode()
-    private val lexicon = HashMap<String, Int>(4096)
+    private val lexicon = HashMap<String, Int>(65536)
     private val wordsByLength = HashMap<Int, MutableList<WordEntry>>(24)
     private val bigrams = HashMap<String, List<WordEntry>>(512)
-    private val shorthands = HashMap<String, String>(128)
+    private val shorthands = HashMap<String, String>(256)
     private val userWords = HashMap<String, Int>(512)
 
     @Volatile
@@ -62,7 +145,7 @@ class IndonesianPredictionEngine {
                 val word = line.substring(0, tab).trim().lowercase()
                 val freq = line.substring(tab + 1).trim().toIntOrNull() ?: return@forEachLine
                 if (word.isNotEmpty() && freq > 0) {
-                    insertWord(word, freq)
+                    insertWord(word, freq, indexForFuzzy = freq >= FUZZY_MIN_FREQ)
                 }
             }
         }
@@ -114,9 +197,8 @@ class IndonesianPredictionEngine {
                 val w = rawWord.trim().lowercase()
                 if (w.length >= 2 && count > 0) {
                     userWords[w] = count
-                    if (!lexicon.containsKey(w)) {
-                        insertWord(w, BASE_USER_FREQ + count * 40)
-                    }
+                    val boosted = (lexicon[w] ?: BASE_USER_FREQ) + count * 40
+                    insertWord(w, boosted, indexForFuzzy = true)
                 }
             }
         }
@@ -129,18 +211,14 @@ class IndonesianPredictionEngine {
             val nextCount = (userWords[clean] ?: 0) + 1
             userWords[clean] = nextCount
             val boosted = (lexicon[clean] ?: BASE_USER_FREQ) + 50
-            insertWord(clean, boosted)
+            insertWord(clean, boosted, indexForFuzzy = true)
         }
     }
 
     fun clearUserWords() {
         synchronized(this) {
             for (w in userWords.keys) {
-                // Only remove words that weren't part of core dictionary
-                if ((lexicon[w] ?: 0) < 1000) {
-                    // Leave trie intact until reload or keep lightweight; zero out user boost
-                    userWords[w] = 0
-                }
+                userWords[w] = 0
             }
             userWords.clear()
         }
@@ -164,7 +242,7 @@ class IndonesianPredictionEngine {
         val suggestions = ArrayList<Suggestion>(maxResults)
         val seen = HashSet<String>(maxResults * 2)
 
-        // 1. Shorthand expansion check (e.g., yg -> yang)
+        // 1. Shorthand expansion check (e.g., yg -> yang, tdk -> tidak)
         val shorthandTarget = if (enableShorthand) shorthands[lower] else null
         if (shorthandTarget != null) {
             val cased = applyCase(shorthandTarget, trimmed)
@@ -175,9 +253,9 @@ class IndonesianPredictionEngine {
             }
         }
 
-        // 2. Prefix completions from Trie
+        // 2. Best-First Top-K prefix completions from Trie
         val exactKnown = lexicon.containsKey(lower) || userWords.containsKey(lower)
-        val prefixCandidates = collectPrefix(lower, limit = 16)
+        val prefixCandidates = collectPrefixBestFirst(lower, limit = 16)
             .sortedWith(
                 compareByDescending<WordEntry> { it.word == lower }
                     .thenByDescending { effectiveFreq(it.word, it.freq) }
@@ -191,9 +269,23 @@ class IndonesianPredictionEngine {
             }
         }
 
-        // 3. Fuzzy typo correction if no exact word match
+        // 3. Dynamic Indonesian clitic / suffix completion (e.g., laptopn -> laptopnya)
+        var hasCliticCandidate = false
+        if (suggestions.size < maxResults && lower.length >= 4) {
+            val clitics = collectCliticMatches(lower, limit = maxResults - suggestions.size)
+            for (c in clitics) {
+                if (suggestions.size >= maxResults) break
+                val cased = applyCase(c, trimmed)
+                if (seen.add(cased.lowercase())) {
+                    suggestions.add(Suggestion(cased, isCorrection = false))
+                    hasCliticCandidate = true
+                }
+            }
+        }
+
+        // 4. Fuzzy typo correction if no exact word match
         var fuzzyBest: String? = null
-        if (!exactKnown && shorthandTarget == null && lower.length >= 2) {
+        if (!exactKnown && !hasCliticCandidate && shorthandTarget == null && lower.length >= 2) {
             val fuzzyMatches = findFuzzyMatches(lower, limit = maxResults)
             if (fuzzyMatches.isNotEmpty()) {
                 val topFuzzy = applyCase(fuzzyMatches.first().first, trimmed)
@@ -203,7 +295,6 @@ class IndonesianPredictionEngine {
                 ) {
                     fuzzyBest = topFuzzy
                 }
-                // Place best correction first if no prefix matches or if confident
                 if (prefixCandidates.isEmpty()) {
                     for ((word, _) in fuzzyMatches) {
                         if (suggestions.size >= maxResults) break
@@ -225,7 +316,6 @@ class IndonesianPredictionEngine {
             else -> null
         }
 
-        // Ensure verbatim option is visible when autocorrect would rewrite what the user typed
         if (autoCommit != null &&
             !exactKnown &&
             suggestions.none { it.text.equals(trimmed, ignoreCase = true) }
@@ -269,28 +359,28 @@ class IndonesianPredictionEngine {
     }
 
     private fun clearBase() {
-        root.children.clear()
-        root.word = null
-        root.freq = 0
+        root.clear()
         lexicon.clear()
         wordsByLength.clear()
         bigrams.clear()
         shorthands.clear()
     }
 
-    private fun insertWord(word: String, freq: Int) {
+    private fun insertWord(word: String, freq: Int, indexForFuzzy: Boolean) {
         val prevFreq = lexicon[word]
         if (prevFreq != null && prevFreq >= freq) return
         lexicon[word] = freq
 
         var node = root
+        if (freq > node.maxSubtreeFreq) node.maxSubtreeFreq = freq
         for (ch in word) {
-            node = node.children.getOrPut(ch) { TrieNode() }
+            node = node.getOrPutChild(ch)
+            if (freq > node.maxSubtreeFreq) node.maxSubtreeFreq = freq
         }
         node.word = word
         node.freq = freq
 
-        if (prevFreq == null) {
+        if (prevFreq == null && indexForFuzzy) {
             wordsByLength.getOrPut(word.length) { ArrayList(64) }.add(WordEntry(word, freq))
         }
     }
@@ -300,22 +390,59 @@ class IndonesianPredictionEngine {
         return baseFreq + userBoost
     }
 
-    private fun collectPrefix(prefix: String, limit: Int): List<WordEntry> {
+    private fun collectPrefixBestFirst(prefix: String, limit: Int): List<WordEntry> {
         var node: TrieNode? = root
         for (ch in prefix) {
-            node = node?.children?.get(ch) ?: return emptyList()
+            node = node?.getChild(ch) ?: return emptyList()
         }
+        val start = node ?: return emptyList()
+
         val out = ArrayList<WordEntry>(limit)
-        val stack = ArrayDeque<TrieNode>()
-        stack.addLast(node!!)
-        while (stack.isNotEmpty() && out.size < limit * 4) {
-            val cur = stack.removeLast()
+        val pq = PriorityQueue<TrieNode>(32, compareByDescending { it.maxSubtreeFreq })
+        pq.add(start)
+
+        var visits = 0
+        while (pq.isNotEmpty() && visits < MAX_BEST_FIRST_VISITS) {
+            val cur = pq.poll() ?: break
+            visits++
+            if (out.size >= limit && cur.maxSubtreeFreq <= out.last().freq) {
+                break
+            }
             val w = cur.word
             if (w != null) {
-                out.add(WordEntry(w, effectiveFreq(w, cur.freq)))
+                val entry = WordEntry(w, effectiveFreq(w, cur.freq))
+                out.add(entry)
+                if (out.size > limit) {
+                    out.sortByDescending { it.freq }
+                    out.removeAt(out.lastIndex)
+                } else if (out.size == limit) {
+                    out.sortByDescending { it.freq }
+                }
             }
-            for (child in cur.children.values) {
-                stack.addLast(child)
+            cur.forEachChild { child ->
+                if (out.size < limit || child.maxSubtreeFreq > out.last().freq) {
+                    pq.add(child)
+                }
+            }
+        }
+        return out
+    }
+
+    private fun collectCliticMatches(lower: String, limit: Int): List<String> {
+        if (limit <= 0) return emptyList()
+        val out = ArrayList<String>(limit)
+        val maxSuffixLen = 3
+        val minStemLen = 3
+        val startSplit = maxOf(minStemLen, lower.length - maxSuffixLen)
+        for (split in lower.length - 1 downTo startSplit) {
+            val stem = lower.substring(0, split)
+            if (!lexicon.containsKey(stem) && !userWords.containsKey(stem)) continue
+            val tail = lower.substring(split)
+            for (clitic in INDONESIAN_CLITICS) {
+                if (clitic.startsWith(tail)) {
+                    out.add(stem + clitic)
+                    if (out.size >= limit) return out
+                }
             }
         }
         return out
@@ -328,9 +455,9 @@ class IndonesianPredictionEngine {
 
         for (targetLen in maxOf(2, len - 1)..(len + 1)) {
             val bucket = wordsByLength[targetLen] ?: continue
-            for (entry in bucket) {
+            for (i in 0 until bucket.size) {
+                val entry = bucket[i]
                 if (abs(entry.word.length - len) > 1) continue
-                // Fast pre-filter: share at least one character of first two chars
                 if (len >= 3 && entry.word[0] != query[0] && entry.word[1] != query[1] && entry.word[0] != query[1]) {
                     continue
                 }
@@ -351,8 +478,11 @@ class IndonesianPredictionEngine {
 
     companion object {
         private const val BASE_USER_FREQ = 650
+        private const val FUZZY_MIN_FREQ = 300
         private const val AUTO_COMMIT_MAX_DIST = 1.15
+        private const val MAX_BEST_FIRST_VISITS = 160
 
+        private val INDONESIAN_CLITICS = listOf("nya", "ku", "mu", "lah", "kah", "pun", "kan")
         private val DEFAULT_STARTERS = listOf("saya", "selamat", "halo")
         private val DEFAULT_CONNECTORS = listOf("yang", "dan", "di")
 

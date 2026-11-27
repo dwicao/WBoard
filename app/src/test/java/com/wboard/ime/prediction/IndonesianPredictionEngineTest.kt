@@ -6,7 +6,8 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.io.ByteArrayInputStream
+import java.io.File
+import java.util.zip.GZIPInputStream
 
 class IndonesianPredictionEngineTest {
 
@@ -32,6 +33,7 @@ class IndonesianPredictionEngineTest {
             gabut	6850
             gpp	7650
             udah	8350
+            laptop	4200
         """.trimIndent().byteInputStream()
 
         val bigrams = """
@@ -106,5 +108,40 @@ class IndonesianPredictionEngineTest {
         val gaulNext = engine.suggest("", previousWord = "gue")
         assertEquals("lagi", gaulNext.suggestions[0].text)
         assertEquals("mau", gaulNext.suggestions[1].text)
+    }
+
+    @Test
+    fun dynamicCliticCompletion_suggestsNyaAndKu() {
+        val res = engine.suggest("laptopn", previousWord = null)
+        assertTrue(res.suggestions.any { it.text == "laptopnya" })
+    }
+
+    @Test
+    fun bundledFullIndonesianCorpus_loadsAndPredictsFormalGaulAndShorthands() {
+        val dictDir = listOf(
+            File("src/main/assets/dict"),
+            File("app/src/main/assets/dict")
+        ).firstOrNull { it.isDirectory }
+        assertNotNull(dictDir)
+
+        val fullEngine = IndonesianPredictionEngine()
+        GZIPInputStream(File(dictDir, "id_unigrams.tsv.gz").inputStream()).use { u ->
+            File(dictDir, "id_bigrams.tsv").inputStream().use { b ->
+                File(dictDir, "id_shorthands.tsv").inputStream().use { s ->
+                    fullEngine.loadFromStreams(u, b, s)
+                }
+            }
+        }
+        assertTrue(fullEngine.isLoaded)
+
+        // Formal KBBI word coverage
+        assertEquals("abdikasi", fullEngine.suggest("abdika", null).suggestions.first().text)
+        // Single-letter Best-First Top-K returns high-frequency Indonesian words
+        val singleM = fullEngine.suggest("m", null).suggestions.map { it.text }
+        assertTrue(singleM.contains("mau") || singleM.contains("mereka") || singleM.contains("masih"))
+        // Gaul & abbreviations
+        assertEquals("santuy", fullEngine.suggest("santu", null).suggestions.first().text)
+        assertEquals("alhamdulillah", fullEngine.suggest("alhmdlh", null).autoCommitCandidate)
+        assertEquals("yang", fullEngine.suggest("yg", null).autoCommitCandidate)
     }
 }

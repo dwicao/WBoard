@@ -34,6 +34,7 @@ import com.wboard.ime.voice.VoiceResultBridge
 import com.wboard.ime.voice.WhisperModelManager
 import com.wboard.ime.voice.WhisperVoiceController
 import java.util.concurrent.Executors
+import java.util.zip.GZIPInputStream
 
 class WBoardImeService : InputMethodService(),
     WBoardKeyboardView.Listener,
@@ -91,7 +92,7 @@ class WBoardImeService : InputMethodService(),
 
         bgExecutor.execute {
             runCatching {
-                assets.open("dict/id_unigrams.tsv").use { unigrams ->
+                GZIPInputStream(assets.open("dict/id_unigrams.tsv.gz")).use { unigrams ->
                     assets.open("dict/id_bigrams.tsv").use { bigrams ->
                         assets.open("dict/id_shorthands.tsv").use { shorthands ->
                             predictionEngine.loadFromStreams(unigrams, bigrams, shorthands)

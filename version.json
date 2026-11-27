@@ -1,13 +1,13 @@
 {
-  "version": "1.0.5",
-  "versionCode": 6,
-  "apkUrl": "https://github.com/dwicao/WBoard/releases/download/v1.0.5/WBoard-v1.0.5-release.apk",
+  "version": "1.0.6",
+  "versionCode": 7,
+  "apkUrl": "https://github.com/dwicao/WBoard/releases/download/v1.0.6/WBoard-v1.0.6-release.apk",
   "sizeBytes": 0,
   "sha256": "",
-  "releasedAt": "2026-11-27",
+  "releasedAt": "2026-11-28",
   "notes": [
-    "Shift (kapital/non-kapital) & pergantian mode Simbol kini instan dengan hardware-accelerated Canvas",
-    "Bar atas penuh untuk prediksi teks; hold '?123' untuk Clipboard, hold Spasi untuk Mic, hold ',' untuk Pengaturan",
-    "Hold baris qwertyuiop otomatis input simbol jika baris angka aktif, atau angka jika baris angka disembunyikan"
+    "Kamus Indonesia diperluas ke 58.597 kata (FrequencyWords 50k + 29k kata dasar KBBI/Sastrawi + kosakata gaul/chat/e-commerce)",
+    "143 singkatan & 351 bigram formal/informal Indonesia",
+    "Best-First Top-K Trie super cepat + prediksi imbuhan dinamis (-nya, -ku, -mu, -lah, -kah, -pun, -kan)"
   ]
 }
