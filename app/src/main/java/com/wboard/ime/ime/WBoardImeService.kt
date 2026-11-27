@@ -234,6 +234,13 @@ class WBoardImeService : InputMethodService(),
         super.onDestroy()
     }
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= TRIM_MEMORY_BACKGROUND) {
+            voiceController.unloadModel()
+        }
+    }
+
     // --- WBoardKeyboardView.Listener ---
 
     override fun onKeyInput(code: Int, text: String?) {

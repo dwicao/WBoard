@@ -26,13 +26,18 @@
 
     <!-- Voice Status -->
     <string name="voice_section_title">Offline Indonesian Voice (Whisper.cpp)</string>
-    <string name="voice_model_ready">Offline model ready: %s</string>
-    <string name="voice_model_missing">Download an offline Whisper model once (~31 MB) for 100% private in-app Indonesian speech-to-text.</string>
+    <string name="voice_device_spec">Your device: %1$.1f GB RAM · %2$d cores (%3$s)\nOptimal: %4$s · Max supported: %5$s</string>
+    <string name="voice_model_ready">Active offline model: %s</string>
+    <string name="voice_model_missing">Choose &amp; download an offline Whisper model below (recommended: %s).</string>
     <string name="voice_model_downloading">Downloading %1$s… %2$d%%</string>
     <string name="voice_model_error">Model download failed: %s</string>
-    <string name="btn_download_tiny">Download Tiny (31 MB)</string>
-    <string name="btn_download_base">Download Base (57 MB)</string>
-    <string name="btn_delete_model">Remove Model</string>
+    <string name="btn_model_download">Download</string>
+    <string name="btn_model_use">Use</string>
+    <string name="btn_model_active">Active ✓</string>
+    <string name="btn_model_cancel">Cancel</string>
+    <string name="btn_model_delete">Delete</string>
+    <string name="badge_recommended">★ Optimal for your device</string>
+    <string name="badge_heavy">Heavy for this device RAM</string>
     <string name="btn_test_voice">Test Voice (ID)</string>
     <string name="voice_test_listening">Speak Indonesian now… (auto-stops on pause)</string>
     <string name="voice_test_processing">Transcribing offline…</string>

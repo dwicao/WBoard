@@ -1,13 +1,13 @@
 {
-  "version": "1.0.3",
-  "versionCode": 4,
-  "apkUrl": "https://github.com/dwicao/WBoard/releases/download/v1.0.3/WBoard-v1.0.3-release.apk",
+  "version": "1.0.4",
+  "versionCode": 5,
+  "apkUrl": "https://github.com/dwicao/WBoard/releases/download/v1.0.4/WBoard-v1.0.4-release.apk",
   "sizeBytes": 0,
   "sha256": "",
   "releasedAt": "2026-11-27",
   "notes": [
-    "Mesin suara offline native in-app menggunakan whisper.cpp (ggml-tiny-q5_1 / ggml-base-q5_1) untuk Bahasa Indonesia",
-    "Rekam audio langsung via AudioRecord dengan VAD otomatis tanpa bergantung Google/Samsung SpeechRecognizer",
-    "Dukungan kosakata gaul & informal Indonesia serta Clipboard privat RAM-only"
+    "Pilihan 5 model Whisper offline dari Low hingga Max (Tiny, Base, Small, Large-v3 Turbo Q5_0 & Q8_0)",
+    "Deteksi spesifikasi HP otomatis (RAM, CPU, 64-bit) dengan rekomendasi model paling optimal",
+    "Optimasi pelepasan memori otomatis di background untuk model berukuran besar"
   ]
 }

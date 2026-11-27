@@ -10,40 +10,75 @@ import java.security.MessageDigest
 import java.util.concurrent.Executors
 
 /**
- * Manages on-device quantized Whisper GGML models stored strictly in private app filesDir.
- * Models are downloaded once on explicit user action, verified by byte size and SHA-256,
- * and afterwards run 100% offline with zero network calls.
+ * Manages on-device quantized Whisper GGML models (from Low/Tiny to Max/Large-v3-Turbo-Q8)
+ * stored strictly in private app filesDir and verified by exact byte size and SHA-256.
  */
 object WhisperModelManager {
 
     enum class ModelVariant(
         val id: String,
+        val tierLabel: String,
         val fileName: String,
         val displayName: String,
+        val specSummary: String,
         val url: String,
         val sizeBytes: Long,
         val sha256: String
     ) {
         TINY_Q5_1(
             id = "tiny_q5_1",
+            tierLabel = "LOW",
             fileName = "ggml-tiny-q5_1.bin",
-            displayName = "Whisper Tiny Q5_1 (~31 MB · Cepat)",
+            displayName = "Whisper Tiny Q5_1 (~31 MB)",
+            specSummary = "Min RAM 3 GB · Paling cepat & ringan, akurasi dasar",
             url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q5_1.bin",
             sizeBytes = 32_152_673L,
             sha256 = "818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7"
         ),
         BASE_Q5_1(
             id = "base_q5_1",
+            tierLabel = "STANDARD",
             fileName = "ggml-base-q5_1.bin",
-            displayName = "Whisper Base Q5_1 (~57 MB · Lebih Akurat)",
+            displayName = "Whisper Base Q5_1 (~57 MB)",
+            specSummary = "Min RAM 4 GB · Seimbang untuk HP kelas menengah",
             url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base-q5_1.bin",
             sizeBytes = 59_707_625L,
             sha256 = "422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898"
+        ),
+        SMALL_Q5_1(
+            id = "small_q5_1",
+            tierLabel = "OPTIMAL",
+            fileName = "ggml-small-q5_1.bin",
+            displayName = "Whisper Small Q5_1 (~181 MB)",
+            specSummary = "Min RAM 6 GB (64-bit) · Sweet-spot terbaik: cepat & akurat ID/gaul",
+            url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
+            sizeBytes = 190_085_487L,
+            sha256 = "ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb"
+        ),
+        LARGE_V3_TURBO_Q5_0(
+            id = "large_v3_turbo_q5_0",
+            tierLabel = "HIGH / TURBO",
+            fileName = "ggml-large-v3-turbo-q5_0.bin",
+            displayName = "Large-v3 Turbo Q5_0 (~547 MB)",
+            specSummary = "Min RAM 8 GB (64-bit) · Akurasi tinggi kelas Large-v3, decoder cepat",
+            url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
+            sizeBytes = 574_041_195L,
+            sha256 = "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
+        ),
+        LARGE_V3_TURBO_Q8_0(
+            id = "large_v3_turbo_q8_0",
+            tierLabel = "MAX",
+            fileName = "ggml-large-v3-turbo-q8_0.bin",
+            displayName = "Large-v3 Turbo Q8_0 (~834 MB)",
+            specSummary = "Min RAM 12 GB (64-bit Flagship) · Akurasi maksimal Bahasa Indonesia & gaul",
+            url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin",
+            sizeBytes = 874_188_075L,
+            sha256 = "317eb69c11673c9de1e1f0d459b253999804ec71ac4c23c17ecf5fbe24e259a1"
         );
 
         companion object {
             fun fromId(id: String?): ModelVariant =
-                entries.firstOrNull { it.id == id } ?: TINY_Q5_1
+                entries.firstOrNull { it.id == id } ?: SMALL_Q5_1
         }
     }
 
@@ -66,12 +101,19 @@ object WhisperModelManager {
         if (isModelInstalled(context, preferred)) {
             return preferred to modelFile(context, preferred)
         }
-        for (variant in ModelVariant.entries) {
+        for (variant in ModelVariant.entries.reversed()) {
             if (isModelInstalled(context, variant)) {
                 return variant to modelFile(context, variant)
             }
         }
         return null
+    }
+
+    fun deleteModel(context: Context, variant: ModelVariant) {
+        val f = modelFile(context, variant)
+        if (f.exists()) f.delete()
+        val part = File(f.parentFile, "${f.name}.part")
+        if (part.exists()) part.delete()
     }
 
     fun deleteAllModels(context: Context) {

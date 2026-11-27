@@ -181,6 +181,12 @@ class WhisperVoiceController(
         recording.set(false)
     }
 
+    fun unloadModel() {
+        if (!recording.get()) {
+            worker.execute { engine.release() }
+        }
+    }
+
     fun destroy() {
         cancel()
         worker.execute { engine.release() }

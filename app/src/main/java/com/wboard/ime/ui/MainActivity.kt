@@ -3,14 +3,18 @@ package com.wboard.ime.ui
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.util.TypedValue
+import android.view.Gravity
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -20,6 +24,7 @@ import com.wboard.ime.BuildConfig
 import com.wboard.ime.R
 import com.wboard.ime.prefs.WBoardPrefs
 import com.wboard.ime.update.Updater
+import com.wboard.ime.voice.DeviceSpecAdvisor
 import com.wboard.ime.voice.IndonesianVoiceController
 import com.wboard.ime.voice.VoiceResultBridge
 import com.wboard.ime.voice.WhisperModelManager
@@ -32,10 +37,9 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
     private lateinit var statusEnableIme: TextView
     private lateinit var statusSelectIme: TextView
     private lateinit var statusMicPerm: TextView
+    private lateinit var txtDeviceSpec: TextView
     private lateinit var txtVoiceStatus: TextView
-    private lateinit var btnDownloadTiny: Button
-    private lateinit var btnDownloadBase: Button
-    private lateinit var btnDeleteModel: Button
+    private lateinit var modelsContainer: LinearLayout
     private lateinit var btnTestVoice: Button
     private lateinit var txtUpdatesCurrent: TextView
     private lateinit var txtUpdatesStatus: TextView
@@ -45,10 +49,12 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
 
     private lateinit var prefs: WBoardPrefs
     private lateinit var voiceController: WhisperVoiceController
+    private lateinit var specReport: DeviceSpecAdvisor.SpecReport
 
     private var availableUpdate: Updater.Info? = null
     private var downloadedApk: File? = null
-    private var downloadingModel: Boolean = false
+    private var downloadingVariant: ModelVariant? = null
+    private var downloadCancelled: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +62,7 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
 
         prefs = WBoardPrefs(this)
         voiceController = WhisperVoiceController(this, this)
+        specReport = DeviceSpecAdvisor.inspect(this)
 
         val root = findViewById<View>(R.id.main_root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
@@ -68,10 +75,9 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
         statusEnableIme = findViewById(R.id.status_enable_ime)
         statusSelectIme = findViewById(R.id.status_select_ime)
         statusMicPerm = findViewById(R.id.status_mic_perm)
+        txtDeviceSpec = findViewById(R.id.txt_device_spec)
         txtVoiceStatus = findViewById(R.id.txt_voice_status)
-        btnDownloadTiny = findViewById(R.id.btn_download_tiny)
-        btnDownloadBase = findViewById(R.id.btn_download_base)
-        btnDeleteModel = findViewById(R.id.btn_delete_model)
+        modelsContainer = findViewById(R.id.whisper_models_container)
         btnTestVoice = findViewById(R.id.btn_test_voice)
         txtUpdatesCurrent = findViewById(R.id.txt_updates_current)
         txtUpdatesStatus = findViewById(R.id.txt_updates_status)
@@ -83,6 +89,15 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
             R.string.updates_current_version,
             BuildConfig.VERSION_NAME,
             BuildConfig.VERSION_CODE
+        )
+
+        txtDeviceSpec.text = getString(
+            R.string.voice_device_spec,
+            specReport.totalRamGb,
+            specReport.cpuCores,
+            if (specReport.is64Bit) "64-bit" else "32-bit",
+            specReport.optimalModel.displayName,
+            specReport.maxSupportedModel.displayName
         )
 
         findViewById<Button>(R.id.btn_enable_ime).setOnClickListener {
@@ -98,20 +113,16 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
             requestMicPermission()
         }
 
-        btnDownloadTiny.setOnClickListener { startModelDownload(ModelVariant.TINY_Q5_1) }
-        btnDownloadBase.setOnClickListener { startModelDownload(ModelVariant.BASE_Q5_1) }
-        btnDeleteModel.setOnClickListener {
-            WhisperModelManager.deleteAllModels(this)
-            refreshStatus()
-        }
-
         btnTestVoice.setOnClickListener {
             if (!IndonesianVoiceController.hasAudioPermission(this)) {
                 requestMicPermission()
                 return@setOnClickListener
             }
             if (WhisperModelManager.activeModelFile(this, prefs.whisperModelId) == null) {
-                txtVoiceStatus.text = getString(R.string.voice_model_missing)
+                txtVoiceStatus.text = getString(
+                    R.string.voice_model_missing,
+                    specReport.optimalModel.displayName
+                )
                 return@setOnClickListener
             }
             if (voiceController.isActive()) {
@@ -155,6 +166,7 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
     }
 
     override fun onDestroy() {
+        downloadCancelled = true
         voiceController.destroy()
         super.onDestroy()
     }
@@ -168,32 +180,171 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
         if (requestCode == REQ_MIC) refreshStatus()
     }
 
+    private fun renderModelRows() {
+        modelsContainer.removeAllViews()
+        val d = resources.displayMetrics.density
+        val active = WhisperModelManager.activeModelFile(this, prefs.whisperModelId)?.first
+
+        for (variant in ModelVariant.entries) {
+            val installed = WhisperModelManager.isModelInstalled(this, variant)
+            val isActive = installed && active == variant
+            val isDownloadingThis = downloadingVariant == variant
+            val isOptimal = variant == specReport.optimalModel
+            val isAboveMax = variant.ordinal > specReport.maxSupportedModel.ordinal
+
+            val card = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setBackgroundResource(R.drawable.bg_test_input)
+                val pad = (10 * d).toInt()
+                setPadding(pad, pad, pad, pad)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = (8 * d).toInt()
+                }
+            }
+
+            val topRow = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            val titleCol = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            }
+
+            val titleTv = TextView(this).apply {
+                text = "[${variant.tierLabel}] ${variant.displayName}"
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.wb_text_primary))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+                setTypeface(null, Typeface.BOLD)
+            }
+            titleCol.addView(titleTv)
+
+            if (isOptimal || isAboveMax) {
+                val badgeTv = TextView(this).apply {
+                    text = if (isOptimal) {
+                        getString(R.string.badge_recommended)
+                    } else {
+                        getString(R.string.badge_heavy)
+                    }
+                    setTextColor(
+                        ContextCompat.getColor(
+                            this@MainActivity,
+                            if (isOptimal) R.color.wb_ok else R.color.wb_warn
+                        )
+                    )
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+                    setTypeface(null, Typeface.BOLD)
+                }
+                titleCol.addView(badgeTv)
+            }
+
+            val specTv = TextView(this).apply {
+                text = variant.specSummary
+                setTextColor(ContextCompat.getColor(this@MainActivity, R.color.wb_text_secondary))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            }
+            titleCol.addView(specTv)
+
+            topRow.addView(titleCol)
+
+            val btnCol = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+            if (isDownloadingThis) {
+                val cancelBtn = makeSmallButton(getString(R.string.btn_model_cancel), primary = false) {
+                    downloadCancelled = true
+                }
+                btnCol.addView(cancelBtn)
+            } else if (installed) {
+                if (isActive) {
+                    val activeBtn = makeSmallButton(getString(R.string.btn_model_active), primary = true) {}
+                    activeBtn.isEnabled = false
+                    btnCol.addView(activeBtn)
+                } else {
+                    val useBtn = makeSmallButton(getString(R.string.btn_model_use), primary = true) {
+                        prefs.whisperModelId = variant.id
+                        refreshStatus()
+                    }
+                    btnCol.addView(useBtn)
+                }
+                val delBtn = makeSmallButton(getString(R.string.btn_model_delete), primary = false) {
+                    WhisperModelManager.deleteModel(this, variant)
+                    refreshStatus()
+                }.apply {
+                    setTextColor(ContextCompat.getColor(this@MainActivity, R.color.wb_danger))
+                    layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        (32 * d).toInt()
+                    ).apply { marginStart = (6 * d).toInt() }
+                }
+                btnCol.addView(delBtn)
+            } else {
+                val dlBtn = makeSmallButton(getString(R.string.btn_model_download), primary = isOptimal) {
+                    startModelDownload(variant)
+                }
+                dlBtn.isEnabled = downloadingVariant == null
+                btnCol.addView(dlBtn)
+            }
+
+            topRow.addView(btnCol)
+            card.addView(topRow)
+            modelsContainer.addView(card)
+        }
+    }
+
+    private fun makeSmallButton(label: String, primary: Boolean, onClick: () -> Unit): Button {
+        val d = resources.displayMetrics.density
+        return Button(this).apply {
+            text = label
+            isAllCaps = false
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            setBackgroundResource(if (primary) R.drawable.bg_button_primary else R.drawable.bg_button_secondary)
+            setTextColor(
+                if (primary) 0xFFFFFFFF.toInt()
+                else ContextCompat.getColor(this@MainActivity, R.color.wb_text_primary)
+            )
+            minWidth = 0
+            minimumWidth = 0
+            minHeight = 0
+            minimumHeight = 0
+            setPadding((10 * d).toInt(), (4 * d).toInt(), (10 * d).toInt(), (4 * d).toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                (32 * d).toInt()
+            )
+            setOnClickListener { onClick() }
+        }
+    }
+
     private fun startModelDownload(variant: ModelVariant) {
-        if (downloadingModel) return
-        downloadingModel = true
-        btnDownloadTiny.isEnabled = false
-        btnDownloadBase.isEnabled = false
-        btnDeleteModel.isEnabled = false
+        if (downloadingVariant != null) return
+        downloadingVariant = variant
+        downloadCancelled = false
         txtVoiceStatus.text = getString(R.string.voice_model_downloading, variant.displayName, 0)
+        renderModelRows()
 
         WhisperModelManager.downloadModelAsync(
             context = this,
             variant = variant,
-            cancelled = { isDestroyed },
+            cancelled = { downloadCancelled || isDestroyed },
             onProgress = { done, total ->
                 val pct = if (total > 0) ((done * 100L) / total).toInt().coerceIn(0, 100) else 0
                 txtVoiceStatus.text = getString(R.string.voice_model_downloading, variant.displayName, pct)
             },
             onComplete = { result ->
-                downloadingModel = false
-                btnDownloadTiny.isEnabled = true
-                btnDownloadBase.isEnabled = true
-                btnDeleteModel.isEnabled = true
+                downloadingVariant = null
                 result.onSuccess {
                     prefs.whisperModelId = variant.id
                     refreshStatus()
                 }.onFailure { err ->
                     txtVoiceStatus.text = getString(R.string.voice_model_error, err.message ?: "error")
+                    renderModelRows()
                 }
             }
         )
@@ -353,14 +504,14 @@ class MainActivity : Activity(), WhisperVoiceController.Listener {
         )
 
         val installed = WhisperModelManager.activeModelFile(this, prefs.whisperModelId)
-        btnDeleteModel.visibility = if (installed != null) View.VISIBLE else View.GONE
         btnTestVoice.isEnabled = installed != null
+        renderModelRows()
 
-        if (!downloadingModel && !voiceController.isActive()) {
+        if (downloadingVariant == null && !voiceController.isActive()) {
             txtVoiceStatus.text = if (installed != null) {
                 getString(R.string.voice_model_ready, installed.first.displayName)
             } else {
-                getString(R.string.voice_model_missing)
+                getString(R.string.voice_model_missing, specReport.optimalModel.displayName)
             }
         }
     }
